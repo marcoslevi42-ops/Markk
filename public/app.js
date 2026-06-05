@@ -56,14 +56,26 @@ function setupFileInputs() {
   document.getElementById('input-form').addEventListener('change', e => {
     if (e.target.files[0]) loadFormFile(e.target.files[0]);
   });
-  document.getElementById('input-data').addEventListener('change', e => {
+  document.getElementById('input-data-gallery').addEventListener('change', e => {
+    if (e.target.files[0]) loadDataFile(e.target.files[0]);
+  });
+  document.getElementById('input-data-camera').addEventListener('change', e => {
     if (e.target.files[0]) loadDataFile(e.target.files[0]);
   });
 }
 
 function setupDropZones() {
   setupDrop('drop-form', file => loadFormFile(file));
-  setupDrop('drop-data', file => loadDataFile(file));
+  const dropData = document.getElementById('drop-data');
+  dropData.addEventListener('dragover', e => { e.preventDefault(); dropData.classList.add('dragging'); });
+  dropData.addEventListener('dragleave', () => dropData.classList.remove('dragging'));
+  dropData.addEventListener('drop', e => {
+    e.preventDefault();
+    dropData.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadDataFile(file);
+    else showToast('Por favor usa una imagen');
+  });
 }
 
 function setupDrop(id, onFile) {
@@ -133,7 +145,8 @@ function resetStep1() {
 
 function resetStep2() {
   dataFile = null;
-  document.getElementById('input-data').value = '';
+  document.getElementById('input-data-gallery').value = '';
+  document.getElementById('input-data-camera').value = '';
   document.getElementById('drop-data').classList.remove('hidden');
   document.getElementById('preview-data').classList.add('hidden');
   document.getElementById('btn-analyze').disabled = true;

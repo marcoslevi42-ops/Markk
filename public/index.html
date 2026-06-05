@@ -92,11 +92,16 @@
           </div>
           <div class="arrow">→</div>
           <div class="upload-half">
-            <div id="drop-data" class="drop-zone compact" onclick="document.getElementById('input-data').click()">
+            <div id="drop-data" class="drop-zone compact">
               <div class="drop-icon">📷</div>
-              <p>Foto con los datos</p>
+              <p>Foto o archivo con los datos</p>
               <p class="hint">DNI, recibo, documento, nota…</p>
-              <input type="file" id="input-data" accept="image/*" capture="environment" class="hidden" />
+              <div class="upload-source-btns">
+                <button class="btn secondary small" onclick="document.getElementById('input-data-gallery').click()">🖼️ Galería / Archivo</button>
+                <button class="btn secondary small" onclick="document.getElementById('input-data-camera').click()">📷 Cámara</button>
+              </div>
+              <input type="file" id="input-data-gallery" accept="image/*" class="hidden" />
+              <input type="file" id="input-data-camera" accept="image/*" capture="environment" class="hidden" />
             </div>
             <div id="preview-data" class="preview-card hidden">
               <img id="img-data" src="" alt="Datos" />
