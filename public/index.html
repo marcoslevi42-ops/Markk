@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Markk — Llenado automático de formularios</title>
+  <title>Markk — Completar formularios con IA</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
   <!-- API Key Modal -->
   <div id="api-modal" class="modal-overlay hidden">
     <div class="modal">
-      <h2>Configurar API Key</h2>
-      <p>Ingresa tu clave de Anthropic para usar la IA de análisis.</p>
+      <h2>API Key de Anthropic</h2>
+      <p>Necesaria para que la IA analice los documentos. Se guarda solo en tu navegador.</p>
       <div class="input-group">
         <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" />
-        <button id="toggle-key" class="icon-btn" title="Mostrar/ocultar">👁</button>
+        <button id="toggle-key" class="icon-btn">👁</button>
       </div>
       <div class="modal-actions">
         <a href="https://console.anthropic.com/settings/keys" target="_blank" class="link">Obtener API key →</a>
@@ -26,88 +27,136 @@
   <div class="app">
     <header>
       <div class="logo">
-        <span class="logo-icon">📄</span>
+        <span class="logo-icon">📋</span>
         <span class="logo-text">Markk</span>
       </div>
-      <button id="settings-btn" class="icon-btn" title="Configuración API Key">⚙️</button>
+      <button id="settings-btn" class="icon-btn" title="Configurar API Key">⚙️</button>
     </header>
 
     <main>
-      <!-- Step 1: Upload -->
-      <section id="upload-section">
-        <div id="drop-zone" class="drop-zone">
-          <div class="drop-icon">📷</div>
-          <h2>Sube o fotografía un documento</h2>
-          <p>DNI, factura, contrato, recibo, formulario…<br/>La IA extrae todos los datos automáticamente.</p>
-          <div class="upload-buttons">
-            <button class="btn primary" onclick="document.getElementById('file-input').click()">
-              🖼️ Elegir imagen
-            </button>
-            <button class="btn secondary" onclick="openCamera()">
-              📷 Usar cámara
-            </button>
+
+      <!-- Steps indicator -->
+      <div id="steps-indicator" class="steps">
+        <div class="step active" id="step-ind-1">
+          <span class="step-num">1</span>
+          <span class="step-label">Formulario</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-ind-2">
+          <span class="step-num">2</span>
+          <span class="step-label">Datos</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-ind-3">
+          <span class="step-num">3</span>
+          <span class="step-label">Resultado</span>
+        </div>
+      </div>
+
+      <!-- STEP 1: Upload form template -->
+      <section id="step1" class="step-section">
+        <div class="step-header">
+          <h2>Sube el formulario vacío</h2>
+          <p>El formulario o plantilla que quieres completar</p>
+        </div>
+        <div id="drop-form" class="drop-zone" onclick="document.getElementById('input-form').click()">
+          <div class="drop-icon">📄</div>
+          <p>Arrastra aquí o haz click para seleccionar</p>
+          <p class="hint">Imagen del formulario vacío, plantilla, ficha…</p>
+          <input type="file" id="input-form" accept="image/*" class="hidden" />
+        </div>
+        <div id="preview-form" class="preview-card hidden">
+          <img id="img-form" src="" alt="Formulario" />
+          <div class="preview-footer">
+            <span id="name-form" class="file-name"></span>
+            <button class="btn ghost small" onclick="resetStep1()">Cambiar</button>
           </div>
-          <input type="file" id="file-input" accept="image/*" class="hidden" />
-          <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" />
-          <p class="hint">También puedes arrastrar y soltar la imagen aquí</p>
+        </div>
+        <div class="step-actions">
+          <button id="btn-step1-next" class="btn primary large" disabled>
+            Siguiente → subir foto con datos
+          </button>
         </div>
       </section>
 
-      <!-- Step 2: Preview -->
-      <section id="preview-section" class="hidden">
-        <div class="preview-card">
-          <img id="preview-img" src="" alt="Vista previa del documento" />
-          <div class="preview-info">
-            <span id="file-name" class="file-name"></span>
-            <span id="file-size" class="file-size"></span>
+      <!-- STEP 2: Upload data photo -->
+      <section id="step2" class="step-section hidden">
+        <div class="step-header">
+          <h2>Sube la foto con los datos</h2>
+          <p>La foto o documento con la información para completar el formulario</p>
+        </div>
+        <div class="two-col">
+          <div class="mini-preview">
+            <p class="mini-label">Formulario</p>
+            <img id="thumb-form" src="" alt="Formulario" />
           </div>
-          <div class="preview-actions">
-            <button id="analyze-btn" class="btn primary large">
-              🔍 Analizar documento
-            </button>
-            <button id="change-img-btn" class="btn ghost">
-              Cambiar imagen
-            </button>
+          <div class="arrow">→</div>
+          <div class="upload-half">
+            <div id="drop-data" class="drop-zone compact" onclick="document.getElementById('input-data').click()">
+              <div class="drop-icon">📷</div>
+              <p>Foto con los datos</p>
+              <p class="hint">DNI, recibo, documento, nota…</p>
+              <input type="file" id="input-data" accept="image/*" capture="environment" class="hidden" />
+            </div>
+            <div id="preview-data" class="preview-card hidden">
+              <img id="img-data" src="" alt="Datos" />
+              <div class="preview-footer">
+                <span id="name-data" class="file-name"></span>
+                <button class="btn ghost small" onclick="resetStep2()">Cambiar</button>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="step-actions">
+          <button id="btn-analyze" class="btn primary large" disabled>
+            🔍 Completar formulario con IA
+          </button>
+          <button class="btn ghost" onclick="goToStep(1)">← Atrás</button>
         </div>
       </section>
 
-      <!-- Step 3: Loading -->
-      <section id="loading-section" class="hidden">
+      <!-- Loading -->
+      <section id="loading-section" class="step-section hidden">
         <div class="loading-card">
           <div class="spinner"></div>
-          <p class="loading-text">Analizando documento<span class="dots"></span></p>
-          <p class="loading-sub">Claude está leyendo y extrayendo los datos</p>
+          <p class="loading-text">Completando formulario<span class="dots"></span></p>
+          <p class="loading-sub">Claude está comparando ambas imágenes y extrayendo los datos</p>
         </div>
       </section>
 
-      <!-- Step 4: Results -->
-      <section id="results-section" class="hidden">
+      <!-- STEP 3: Results -->
+      <section id="step3" class="step-section hidden">
         <div class="results-header">
           <div>
-            <span class="doc-badge" id="doc-badge">Documento</span>
-            <h2 id="doc-title">Datos extraídos</h2>
+            <span class="doc-badge" id="form-title-badge">Formulario</span>
+            <h2>Formulario completado</h2>
           </div>
           <div class="results-actions">
-            <button id="copy-btn" class="btn secondary" title="Copiar todo">📋 Copiar</button>
-            <button id="csv-btn" class="btn secondary" title="Exportar CSV">💾 CSV</button>
-            <button id="new-scan-btn" class="btn ghost">Nueva foto</button>
+            <button id="copy-btn" class="btn secondary">📋 Copiar</button>
+            <button id="csv-btn" class="btn secondary">💾 CSV</button>
+            <button class="btn ghost" onclick="resetAll()">🔄 Nuevo</button>
           </div>
         </div>
 
-        <div id="form-fields" class="form-fields"></div>
-
-        <div class="results-footer">
-          <p class="footer-note">
-            ✏️ Puedes editar cualquier campo antes de copiar o exportar.
-          </p>
+        <div class="results-layout">
+          <div class="form-fields-panel">
+            <div id="form-fields"></div>
+          </div>
+          <div class="images-panel">
+            <p class="panel-label">Formulario original</p>
+            <img id="result-form-img" src="" alt="Formulario" class="result-img" />
+            <p class="panel-label" style="margin-top:12px">Foto de datos</p>
+            <img id="result-data-img" src="" alt="Datos" class="result-img" />
+          </div>
         </div>
+
+        <p class="footer-note">✏️ Puedes editar cualquier campo antes de copiar o exportar.</p>
       </section>
+
     </main>
   </div>
 
   <div id="toast" class="toast hidden"></div>
-
   <script src="app.js"></script>
 </body>
 </html>

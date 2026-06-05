@@ -1,202 +1,214 @@
 /* ── State ── */
-let currentFile = null;
+let formFile = null, dataFile = null;
 let currentFields = [];
+let currentFormTitle = '';
 
 /* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
+  setupDropZones();
+  setupFileInputs();
+  setupButtons();
   if (!getApiKey()) showApiModal();
-  setupEventListeners();
 });
 
-function setupEventListeners() {
-  // API key modal
-  document.getElementById('settings-btn').addEventListener('click', showApiModal);
-  document.getElementById('save-key-btn').addEventListener('click', saveApiKey);
-  document.getElementById('toggle-key').addEventListener('click', toggleKeyVisibility);
-  document.getElementById('api-key-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveApiKey();
-  });
-
-  // File inputs
-  document.getElementById('file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('camera-input').addEventListener('change', handleFileSelect);
-
-  // Drop zone
-  const dropZone = document.getElementById('drop-zone');
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragging');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) loadFile(file);
-    else showToast('Por favor sube una imagen válida');
-  });
-
-  // Preview actions
-  document.getElementById('analyze-btn').addEventListener('click', analyzeDocument);
-  document.getElementById('change-img-btn').addEventListener('click', resetToUpload);
-
-  // Results actions
-  document.getElementById('copy-btn').addEventListener('click', copyResults);
-  document.getElementById('csv-btn').addEventListener('click', exportCsv);
-  document.getElementById('new-scan-btn').addEventListener('click', resetToUpload);
-}
-
 /* ── API Key ── */
-function getApiKey() { return localStorage.getItem('markk_api_key'); }
-
-function saveApiKey() {
-  const key = document.getElementById('api-key-input').value.trim();
-  if (!key) { showToast('Ingresa una API key válida'); return; }
-  if (!key.startsWith('sk-ant-')) {
-    showToast('La key debe comenzar con sk-ant-');
-    return;
-  }
-  localStorage.setItem('markk_api_key', key);
-  hideApiModal();
-  showToast('✅ API key guardada');
-}
-
-function toggleKeyVisibility() {
-  const input = document.getElementById('api-key-input');
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
+function getApiKey() { return localStorage.getItem('markk_api_key') || ''; }
 
 function showApiModal() {
   const key = getApiKey();
   if (key) document.getElementById('api-key-input').value = key;
   document.getElementById('api-modal').classList.remove('hidden');
 }
-
-function hideApiModal() {
-  document.getElementById('api-modal').classList.add('hidden');
-}
+function hideApiModal() { document.getElementById('api-modal').classList.add('hidden'); }
 
 document.getElementById('api-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('api-modal')) hideApiModal();
 });
 
-/* ── Camera ── */
-function openCamera() {
-  document.getElementById('camera-input').click();
+function setupButtons() {
+  document.getElementById('settings-btn').addEventListener('click', showApiModal);
+
+  document.getElementById('save-key-btn').addEventListener('click', () => {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) return showToast('Ingresa una API key');
+    localStorage.setItem('markk_api_key', key);
+    hideApiModal();
+    showToast('✅ API key guardada');
+  });
+
+  document.getElementById('api-key-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('save-key-btn').click();
+  });
+
+  document.getElementById('toggle-key').addEventListener('click', () => {
+    const inp = document.getElementById('api-key-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  document.getElementById('btn-step1-next').addEventListener('click', () => goToStep(2));
+  document.getElementById('btn-analyze').addEventListener('click', analyze);
+  document.getElementById('copy-btn').addEventListener('click', copyResults);
+  document.getElementById('csv-btn').addEventListener('click', exportCsv);
 }
 
-/* ── File Handling ── */
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) loadFile(file);
+/* ── File Inputs ── */
+function setupFileInputs() {
+  document.getElementById('input-form').addEventListener('change', e => {
+    if (e.target.files[0]) loadFormFile(e.target.files[0]);
+  });
+  document.getElementById('input-data').addEventListener('change', e => {
+    if (e.target.files[0]) loadDataFile(e.target.files[0]);
+  });
 }
 
-function loadFile(file) {
-  currentFile = file;
+function setupDropZones() {
+  setupDrop('drop-form', file => loadFormFile(file));
+  setupDrop('drop-data', file => loadDataFile(file));
+}
+
+function setupDrop(id, onFile) {
+  const zone = document.getElementById(id);
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragging'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) onFile(file);
+    else showToast('Por favor usa una imagen');
+  });
+}
+
+/* ── Load Files ── */
+function loadFormFile(file) {
+  formFile = file;
   const reader = new FileReader();
   reader.onload = e => {
-    document.getElementById('preview-img').src = e.target.result;
-    document.getElementById('file-name').textContent = file.name;
-    document.getElementById('file-size').textContent = formatSize(file.size);
-    showSection('preview-section');
+    document.getElementById('img-form').src = e.target.result;
+    document.getElementById('name-form').textContent = file.name;
+    document.getElementById('drop-form').classList.add('hidden');
+    document.getElementById('preview-form').classList.remove('hidden');
+    document.getElementById('btn-step1-next').disabled = false;
   };
   reader.readAsDataURL(file);
 }
 
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+function loadDataFile(file) {
+  dataFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('img-data').src = e.target.result;
+    document.getElementById('name-data').textContent = file.name;
+    document.getElementById('drop-data').classList.add('hidden');
+    document.getElementById('preview-data').classList.remove('hidden');
+    document.getElementById('btn-analyze').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── Navigation ── */
+function goToStep(n) {
+  document.querySelectorAll('.step-section').forEach(s => s.classList.add('hidden'));
+  document.getElementById(`step${n}`).classList.remove('hidden');
+
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < n) s.classList.add('done');
+    if (i + 1 === n) s.classList.add('active');
+  });
+
+  // Sync step 2 thumbnail
+  if (n === 2 && formFile) {
+    document.getElementById('thumb-form').src = document.getElementById('img-form').src;
+  }
+}
+
+function resetStep1() {
+  formFile = null;
+  document.getElementById('input-form').value = '';
+  document.getElementById('drop-form').classList.remove('hidden');
+  document.getElementById('preview-form').classList.add('hidden');
+  document.getElementById('btn-step1-next').disabled = true;
+}
+
+function resetStep2() {
+  dataFile = null;
+  document.getElementById('input-data').value = '';
+  document.getElementById('drop-data').classList.remove('hidden');
+  document.getElementById('preview-data').classList.add('hidden');
+  document.getElementById('btn-analyze').disabled = true;
+}
+
+function resetAll() {
+  resetStep1();
+  resetStep2();
+  currentFields = [];
+  document.getElementById('form-fields').innerHTML = '';
+  goToStep(1);
 }
 
 /* ── Analysis ── */
-async function analyzeDocument() {
-  const apiKey = getApiKey();
-  if (!apiKey) { showApiModal(); return; }
-  if (!currentFile) return;
+async function analyze() {
+  if (!formFile || !dataFile) return;
 
-  showSection('loading-section');
+  // Show loading
+  document.querySelectorAll('.step-section').forEach(s => s.classList.add('hidden'));
+  document.getElementById('loading-section').classList.remove('hidden');
 
   try {
-    const base64 = await fileToBase64(currentFile);
-    const mediaType = currentFile.type || 'image/jpeg';
-    const result = await callClaudeVision(apiKey, base64, mediaType);
+    const [formB64, dataB64] = await Promise.all([
+      fileToBase64(formFile),
+      fileToBase64(dataFile)
+    ]);
+
+    const payload = {
+      apiKey: getApiKey(),
+      formImage: formB64,
+      formMime: formFile.type || 'image/jpeg',
+      dataImage: dataB64,
+      dataMime: dataFile.type || 'image/jpeg'
+    };
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(result.error || `Error ${res.status}`);
+    }
+
     renderResults(result);
-    showSection('results-section');
+
+    // Show step 3
+    document.getElementById('loading-section').classList.add('hidden');
+    document.getElementById('step3').classList.remove('hidden');
+    document.querySelectorAll('.step').forEach((s, i) => {
+      s.classList.remove('active', 'done');
+      if (i < 2) s.classList.add('done');
+      if (i === 2) s.classList.add('active');
+    });
+
   } catch (err) {
-    showSection('preview-section');
-    if (err.status === 401) {
-      showToast('❌ API key inválida — verifica tu clave');
+    document.getElementById('loading-section').classList.add('hidden');
+    goToStep(2);
+
+    if (err.message.includes('API key') || err.message.includes('401') || err.message.includes('auth')) {
+      showToast('❌ API key inválida', 4000);
       showApiModal();
     } else {
-      showToast('❌ Error: ' + (err.message || 'Inténtalo de nuevo'));
+      showToast('❌ ' + (err.message || 'Error al analizar'), 5000);
     }
   }
-}
-
-async function callClaudeVision(apiKey, base64Data, mediaType) {
-  const prompt = `Analiza esta imagen de un documento y extrae TODOS los datos visibles.
-
-Responde ÚNICAMENTE con un JSON válido, sin texto adicional, con este formato exacto:
-{
-  "document_type": "Tipo de documento en español (ej: DNI, Factura, Contrato, Recibo, etc.)",
-  "fields": [
-    {"label": "Nombre del campo", "value": "Valor extraído", "confidence": "high"}
-  ]
-}
-
-Instrucciones:
-- Extrae absolutamente todos los campos y datos que puedas ver
-- Usa "confidence": "high" si el texto es claro, "low" si es difícil de leer
-- Si un valor no es legible, pon "value": "No legible"
-- Los labels deben estar en español y ser descriptivos
-- Sé exhaustivo: fechas, números, nombres, direcciones, importes, códigos, etc.`;
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-allow-browser': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64Data },
-          },
-          { type: 'text', text: prompt },
-        ],
-      }],
-    }),
-  });
-
-  if (!response.ok) {
-    const err = new Error(`HTTP ${response.status}`);
-    err.status = response.status;
-    throw err;
-  }
-
-  const data = await response.json();
-  const text = data.content[0].text.trim();
-
-  // Extract JSON from response (handles markdown code blocks if present)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Respuesta inesperada de la IA');
-
-  return JSON.parse(jsonMatch[0]);
 }
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      // Remove data URL prefix (data:image/...;base64,)
-      const base64 = e.target.result.split(',')[1];
-      resolve(base64);
-    };
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -205,21 +217,22 @@ function fileToBase64(file) {
 /* ── Render Results ── */
 function renderResults(result) {
   currentFields = result.fields || [];
+  currentFormTitle = result.form_title || 'Formulario';
 
-  document.getElementById('doc-badge').textContent = result.document_type || 'Documento';
-  document.getElementById('doc-title').textContent =
-    result.document_type ? `Datos del ${result.document_type}` : 'Datos extraídos';
+  document.getElementById('form-title-badge').textContent = currentFormTitle;
+  document.getElementById('result-form-img').src = document.getElementById('img-form').src;
+  document.getElementById('result-data-img').src = document.getElementById('img-data').src;
 
   const container = document.getElementById('form-fields');
   container.innerHTML = '';
 
   if (!currentFields.length) {
-    container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px">No se encontraron datos en el documento.</p>';
+    container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px">No se encontraron campos en el formulario.</p>';
     return;
   }
 
   currentFields.forEach((field, i) => {
-    const isEmpty = !field.value || field.value === 'No legible';
+    const isEmpty = !field.value;
     const isLow = field.confidence === 'low';
 
     const item = document.createElement('div');
@@ -227,22 +240,17 @@ function renderResults(result) {
     item.innerHTML = `
       <div class="field-label">
         <span class="confidence-dot ${isLow ? 'confidence-low' : 'confidence-high'}"></span>
-        ${escapeHtml(field.label)}
+        ${escHtml(field.label)}
       </div>
-      <textarea
-        class="field-value"
-        rows="1"
-        data-index="${i}"
-        placeholder="Sin valor"
-      >${escapeHtml(field.value || '')}</textarea>
+      <textarea class="field-value" rows="1" placeholder="Sin dato">${escHtml(field.value || '')}</textarea>
     `;
 
-    const textarea = item.querySelector('textarea');
-    autoResize(textarea);
-    textarea.addEventListener('input', e => {
+    const ta = item.querySelector('textarea');
+    autoResize(ta);
+    ta.addEventListener('input', e => {
       autoResize(e.target);
       currentFields[i].value = e.target.value;
-      item.classList.toggle('field-empty', !e.target.value);
+      item.classList.toggle('field-empty', !e.target.value.trim());
     });
 
     container.appendChild(item);
@@ -254,81 +262,42 @@ function autoResize(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
-function escapeHtml(str) {
+function escHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 /* ── Export ── */
 function copyResults() {
   if (!currentFields.length) return;
-  const text = currentFields
-    .map(f => `${f.label}: ${f.value || ''}`)
-    .join('\n');
+  const text = `${currentFormTitle}\n${'─'.repeat(30)}\n` +
+    currentFields.map(f => `${f.label}: ${f.value || '(vacío)'}`).join('\n');
   navigator.clipboard.writeText(text)
-    .then(() => showToast('📋 Copiado al portapapeles'))
-    .catch(() => {
-      // Fallback for older browsers
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      showToast('📋 Copiado al portapapeles');
-    });
+    .then(() => showToast('📋 Copiado'))
+    .catch(() => showToast('No se pudo copiar'));
 }
 
 function exportCsv() {
   if (!currentFields.length) return;
-  const docType = document.getElementById('doc-badge').textContent;
-  const headers = 'Campo,Valor\n';
-  const rows = currentFields
-    .map(f => `"${csvEscape(f.label)}","${csvEscape(f.value || '')}"`)
-    .join('\n');
-  const csv = headers + rows;
-
+  const csv = 'Campo,Valor\n' +
+    currentFields.map(f => `"${csvEsc(f.label)}","${csvEsc(f.value || '')}"`).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `markk-${docType.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.csv`;
+  a.href = URL.createObjectURL(blob);
+  a.download = `markk-${currentFormTitle.toLowerCase().replace(/\s+/g,'-')}.csv`;
   a.click();
-  URL.revokeObjectURL(url);
   showToast('💾 CSV descargado');
 }
 
-function csvEscape(str) {
-  return String(str).replace(/"/g, '""');
-}
-
-/* ── Section Navigation ── */
-function showSection(id) {
-  ['upload-section', 'preview-section', 'loading-section', 'results-section'].forEach(s => {
-    document.getElementById(s).classList.add('hidden');
-  });
-  document.getElementById(id).classList.remove('hidden');
-}
-
-function resetToUpload() {
-  currentFile = null;
-  currentFields = [];
-  document.getElementById('file-input').value = '';
-  document.getElementById('camera-input').value = '';
-  document.getElementById('preview-img').src = '';
-  document.getElementById('form-fields').innerHTML = '';
-  showSection('upload-section');
-}
+function csvEsc(s) { return String(s).replace(/"/g,'""'); }
 
 /* ── Toast ── */
-let toastTimer = null;
+let toastTimer;
 function showToast(msg, duration = 3000) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.classList.remove('hidden');
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.add('hidden'), duration);
+  toastTimer = setTimeout(() => t.classList.add('hidden'), duration);
 }
