@@ -49,6 +49,7 @@ function setupButtons() {
   document.getElementById('btn-analyze').addEventListener('click', analyze);
   document.getElementById('copy-btn').addEventListener('click', copyResults);
   document.getElementById('csv-btn').addEventListener('click', exportCsv);
+  document.getElementById('download-img-btn').addEventListener('click', downloadFilledImage);
 }
 
 /* ── File Inputs ── */
@@ -237,7 +238,7 @@ function renderResults(result) {
   document.getElementById('result-data-img').src = document.getElementById('img-data').src;
 
   const overlay = document.getElementById('overlay-container');
-  overlay.querySelectorAll('.erase-patch, .overlay-field').forEach(el => el.remove());
+  overlay.querySelectorAll('.overlay-field-wrap').forEach(el => el.remove());
 
   const fallback = document.getElementById('overlay-fallback');
   const fieldsWithBox = currentFields.filter(f => f.box);
@@ -246,38 +247,69 @@ function renderResults(result) {
     fallback.classList.add('hidden');
     currentFields.forEach((field, i) => {
       if (!field.box) return;
-      const { x, y, width, height } = field.box;
       const isEmpty = !field.value;
       const isLow = field.confidence === 'low';
 
-      const patch = document.createElement('div');
-      patch.className = 'erase-patch';
-      patch.style.left = `${x}%`;
-      patch.style.top = `${y}%`;
-      patch.style.width = `${width}%`;
-      patch.style.height = `${height}%`;
-      overlay.appendChild(patch);
+      const wrap = document.createElement('div');
+      wrap.className = 'overlay-field-wrap';
+      wrap.style.left = `${field.box.x}%`;
+      wrap.style.top = `${field.box.y}%`;
+      wrap.style.width = `${field.box.width}%`;
+      wrap.style.height = `${field.box.height}%`;
+      wrap.innerHTML = `
+        <div class="erase-patch"></div>
+        <input type="text" class="overlay-field${isEmpty ? ' field-empty' : ''}${isLow ? ' confidence-low' : ''}" />
+        <div class="drag-handle" title="Arrastrar para reposicionar">✥</div>
+      `;
 
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = `overlay-field${isEmpty ? ' field-empty' : ''}${isLow ? ' confidence-low' : ''}`;
+      const input = wrap.querySelector('.overlay-field');
       input.value = field.value || '';
       input.title = field.label || '';
       input.placeholder = field.label || '';
-      input.style.left = `${x}%`;
-      input.style.top = `${y}%`;
-      input.style.width = `${width}%`;
-      input.style.height = `${height}%`;
       input.addEventListener('input', e => {
         currentFields[i].value = e.target.value;
         input.classList.toggle('field-empty', !e.target.value.trim());
       });
-      overlay.appendChild(input);
+
+      overlay.appendChild(wrap);
+      makeDraggable(wrap, field, overlay);
     });
   } else {
     fallback.classList.remove('hidden');
     renderFieldList();
   }
+}
+
+/* ── Drag to reposition misplaced fields ── */
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function makeDraggable(wrap, field, container) {
+  const handle = wrap.querySelector('.drag-handle');
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+
+    const rect = container.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    const startLeft = field.box.x, startTop = field.box.y;
+
+    const onMove = ev => {
+      const dxPct = (ev.clientX - startX) / rect.width * 100;
+      const dyPct = (ev.clientY - startY) / rect.height * 100;
+      field.box.x = clamp(startLeft + dxPct, 0, 100 - field.box.width);
+      field.box.y = clamp(startTop + dyPct, 0, 100 - field.box.height);
+      wrap.style.left = `${field.box.x}%`;
+      wrap.style.top = `${field.box.y}%`;
+    };
+    const onUp = ev => {
+      handle.releasePointerCapture(ev.pointerId);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
 }
 
 function renderFieldList() {
@@ -349,6 +381,46 @@ function exportCsv() {
 }
 
 function csvEsc(s) { return String(s).replace(/"/g,'""'); }
+
+function downloadFilledImage() {
+  const img = document.getElementById('result-form-img');
+  if (!img.naturalWidth) return showToast('La imagen todavía no cargó, esperá un momento');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  currentFields.forEach(field => {
+    if (!field.box || !field.value) return;
+    const px = field.box.x / 100 * canvas.width;
+    const py = field.box.y / 100 * canvas.height;
+    const pw = field.box.width / 100 * canvas.width;
+    const ph = field.box.height / 100 * canvas.height;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(px, py, pw, ph);
+
+    ctx.fillStyle = '#1a1a2e';
+    ctx.textBaseline = 'middle';
+    let fontSize = Math.max(10, Math.floor(ph * 0.6));
+    ctx.font = `${fontSize}px sans-serif`;
+    while (fontSize > 8 && ctx.measureText(field.value).width > pw - 8) {
+      fontSize -= 1;
+      ctx.font = `${fontSize}px sans-serif`;
+    }
+    ctx.fillText(field.value, px + 4, py + ph / 2, pw - 8);
+  });
+
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `markk-${currentFormTitle.toLowerCase().replace(/\s+/g,'-')}.png`;
+    a.click();
+    showToast('🖼️ Imagen descargada');
+  }, 'image/png');
+}
 
 /* ── Toast ── */
 let toastTimer;

@@ -357,13 +357,20 @@ header {
   width: 100%;
   height: auto;
 }
+.overlay-field-wrap {
+  position: absolute;
+}
 .erase-patch {
   position: absolute;
+  inset: 0;
   background: #ffffff;
   border-radius: 2px;
 }
 .overlay-field {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   border: 1.5px solid var(--accent);
   border-radius: 4px;
@@ -382,6 +389,32 @@ header {
 }
 .overlay-field.field-empty { color: var(--text-muted); font-style: italic; border-style: dashed; }
 .overlay-field.confidence-low { border-color: var(--warning); }
+
+.drag-handle {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 6;
+  touch-action: none;
+}
+.overlay-field-wrap:hover .drag-handle,
+.overlay-field-wrap:focus-within .drag-handle {
+  opacity: 1;
+}
+.drag-handle:active { cursor: grabbing; }
 
 /* ── Form Fields (fallback list) ── */
 .form-fields-panel { }
