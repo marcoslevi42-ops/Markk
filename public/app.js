@@ -236,6 +236,51 @@ function renderResults(result) {
   document.getElementById('result-form-img').src = document.getElementById('img-form').src;
   document.getElementById('result-data-img').src = document.getElementById('img-data').src;
 
+  const overlay = document.getElementById('overlay-container');
+  overlay.querySelectorAll('.erase-patch, .overlay-field').forEach(el => el.remove());
+
+  const fallback = document.getElementById('overlay-fallback');
+  const fieldsWithBox = currentFields.filter(f => f.box);
+
+  if (currentFields.length && fieldsWithBox.length) {
+    fallback.classList.add('hidden');
+    currentFields.forEach((field, i) => {
+      if (!field.box) return;
+      const { x, y, width, height } = field.box;
+      const isEmpty = !field.value;
+      const isLow = field.confidence === 'low';
+
+      const patch = document.createElement('div');
+      patch.className = 'erase-patch';
+      patch.style.left = `${x}%`;
+      patch.style.top = `${y}%`;
+      patch.style.width = `${width}%`;
+      patch.style.height = `${height}%`;
+      overlay.appendChild(patch);
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = `overlay-field${isEmpty ? ' field-empty' : ''}${isLow ? ' confidence-low' : ''}`;
+      input.value = field.value || '';
+      input.title = field.label || '';
+      input.placeholder = field.label || '';
+      input.style.left = `${x}%`;
+      input.style.top = `${y}%`;
+      input.style.width = `${width}%`;
+      input.style.height = `${height}%`;
+      input.addEventListener('input', e => {
+        currentFields[i].value = e.target.value;
+        input.classList.toggle('field-empty', !e.target.value.trim());
+      });
+      overlay.appendChild(input);
+    });
+  } else {
+    fallback.classList.remove('hidden');
+    renderFieldList();
+  }
+}
+
+function renderFieldList() {
   const container = document.getElementById('form-fields');
   container.innerHTML = '';
 

@@ -144,18 +144,22 @@
         </div>
 
         <div class="results-layout">
-          <div class="form-fields-panel">
-            <div id="form-fields"></div>
+          <div class="overlay-panel">
+            <p class="panel-label">Formulario completado (editable)</p>
+            <div class="overlay-container" id="overlay-container">
+              <img id="result-form-img" src="" alt="Formulario" />
+            </div>
+            <div id="overlay-fallback" class="hidden">
+              <div id="form-fields"></div>
+            </div>
           </div>
           <div class="images-panel">
-            <p class="panel-label">Formulario original</p>
-            <img id="result-form-img" src="" alt="Formulario" class="result-img" />
-            <p class="panel-label" style="margin-top:12px">Foto de datos</p>
+            <p class="panel-label">Foto de datos</p>
             <img id="result-data-img" src="" alt="Datos" class="result-img" />
           </div>
         </div>
 
-        <p class="footer-note">✏️ Puedes editar cualquier campo antes de copiar o exportar.</p>
+        <p class="footer-note">✏️ Toca cualquier campo sobre el formulario para corregirlo antes de copiar o exportar.</p>
       </section>
 
     </main>

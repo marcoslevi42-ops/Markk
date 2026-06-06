@@ -20,20 +20,28 @@ async function callClaude(apiKey, formImageB64, formMime, dataImageB64, dataMime
 2. DATOS: una imagen/foto con los datos que deben completar ese formulario
 
 Tu tarea:
-- Identifica todos los campos del FORMULARIO (nombres, fechas, montos, casillas, etc.)
+- Identifica todos los campos rellenables del FORMULARIO (nombres, fechas, montos, casillas, líneas en blanco, recuadros, etc.)
+- Para cada campo, ubica con precisión el ÁREA EN BLANCO donde se debe escribir el valor dentro de la imagen del FORMULARIO (no el área del texto de la etiqueta/label, sino el espacio vacío a completar: la línea, casilla o recuadro)
+- Expresa esa ubicación como un cuadro delimitador en PORCENTAJES relativos al ancho y alto totales de la imagen del FORMULARIO (0 a 100), donde x/y es la esquina superior izquierda del área en blanco
 - Extrae los valores correspondientes de la imagen de DATOS
 - Devuelve ÚNICAMENTE un JSON válido con este formato exacto:
 
 {
   "form_title": "Nombre del formulario identificado",
   "fields": [
-    {"label": "Nombre del campo", "value": "Valor extraído de los datos", "confidence": "high"}
+    {
+      "label": "Nombre del campo",
+      "value": "Valor extraído de los datos",
+      "confidence": "high",
+      "box": {"x": 12.5, "y": 30.2, "width": 35.0, "height": 6.5}
+    }
   ]
 }
 
 Usa "confidence": "high" si el valor es claro, "low" si es difícil de leer.
 Si un campo no tiene dato correspondiente en la imagen de datos, pon "value": "".
-Sé exhaustivo — extrae TODOS los campos del formulario.`;
+Si no podés determinar la ubicación de un campo, omití la clave "box" para ese campo.
+Sé exhaustivo — extrae TODOS los campos del formulario, y sé lo más preciso posible con las coordenadas del área en blanco a completar.`;
 
   const body = JSON.stringify({
     model: 'claude-sonnet-4-6',

@@ -342,7 +342,48 @@ header {
   align-items: start;
 }
 
-/* ── Form Fields ── */
+/* ── Overlay (form with erased text + editable fields) ── */
+.overlay-panel { }
+.overlay-container {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  background: var(--surface2);
+}
+.overlay-container img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.erase-patch {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 2px;
+}
+.overlay-field {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(237, 237, 255, 0.6);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  padding: 2px 6px;
+  outline: none;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+.overlay-field:focus {
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(91,94,244,0.25);
+  z-index: 5;
+}
+.overlay-field.field-empty { color: var(--text-muted); font-style: italic; border-style: dashed; }
+.overlay-field.confidence-low { border-color: var(--warning); }
+
+/* ── Form Fields (fallback list) ── */
 .form-fields-panel { }
 #form-fields { display: grid; gap: 10px; }
 
