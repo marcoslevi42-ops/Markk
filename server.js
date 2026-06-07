@@ -11,8 +11,151 @@ const MIME = {
   '.js':   'text/javascript',
   '.png':  'image/png',
   '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.ico':  'image/x-icon',
 };
+
+function collectBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, MCP-Protocol-Version',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function mcpResponse(id, result) {
+  return { jsonrpc: '2.0', id: id ?? null, result };
+}
+
+function mcpError(id, code, message) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
+}
+
+const MCP_TOOLS = [
+  {
+    name: 'completar_formulario_trauma',
+    description: 'Organiza datos traumatológicos o clínicos en formato listo para copiar en formularios médicos.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paciente: { type: 'string' },
+        edad: { type: 'string' },
+        dni: { type: 'string' },
+        diagnostico: { type: 'string' },
+        procedimiento: { type: 'string' },
+        sala_cama: { type: 'string' },
+        observaciones: { type: 'string' }
+      },
+      required: ['paciente', 'diagnostico']
+    }
+  },
+  {
+    name: 'estado_markk',
+    description: 'Verifica si el servidor Markk está online.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  }
+];
+
+async function handleMcp(req, res) {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept, MCP-Protocol-Version',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    });
+    return res.end();
+  }
+
+  if (req.method === 'GET') {
+    return sendJson(res, 200, {
+      name: 'Trauma Forma AI',
+      status: 'online',
+      endpoint: '/mcp'
+    });
+  }
+
+  const raw = await collectBody(req);
+  const body = JSON.parse(raw.toString() || '{}');
+
+  const { id, method, params } = body;
+
+  if (method === 'initialize') {
+    return sendJson(res, 200, mcpResponse(id, {
+      protocolVersion: '2024-11-05',
+      capabilities: { tools: {} },
+      serverInfo: {
+        name: 'Trauma Forma AI',
+        version: '1.0.0'
+      }
+    }));
+  }
+
+  if (method === 'notifications/initialized') {
+    res.writeHead(202);
+    return res.end();
+  }
+
+  if (method === 'tools/list') {
+    return sendJson(res, 200, mcpResponse(id, {
+      tools: MCP_TOOLS
+    }));
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params?.name;
+    const args = params?.arguments || {};
+
+    if (toolName === 'estado_markk') {
+      return sendJson(res, 200, mcpResponse(id, {
+        content: [
+          {
+            type: 'text',
+            text: 'Markk está online. Endpoint MCP activo: /mcp'
+          }
+        ]
+      }));
+    }
+
+    if (toolName === 'completar_formulario_trauma') {
+      const texto = [
+        `Paciente: ${args.paciente || ''}`,
+        args.edad ? `Edad: ${args.edad}` : null,
+        args.dni ? `DNI: ${args.dni}` : null,
+        args.sala_cama ? `Sala/Cama: ${args.sala_cama}` : null,
+        `Diagnóstico: ${args.diagnostico || ''}`,
+        args.procedimiento ? `Procedimiento/Plan: ${args.procedimiento}` : null,
+        args.observaciones ? `Observaciones: ${args.observaciones}` : null
+      ].filter(Boolean).join('\n');
+
+      return sendJson(res, 200, mcpResponse(id, {
+        content: [
+          {
+            type: 'text',
+            text: texto
+          }
+        ]
+      }));
+    }
+
+    return sendJson(res, 200, mcpError(id, -32601, 'Herramienta no encontrada'));
+  }
+
+  return sendJson(res, 200, mcpError(id, -32601, 'Método MCP no soportado'));
+}
 
 async function callClaude(apiKey, formImageB64, formMime, dataImageB64, dataMime) {
   const prompt = `Se te dan DOS imágenes:
@@ -20,20 +163,9 @@ async function callClaude(apiKey, formImageB64, formMime, dataImageB64, dataMime
 2. DATOS: una imagen/foto con los datos que deben completar ese formulario
 
 Tu tarea:
-- Identifica todos los campos del FORMULARIO (nombres, fechas, montos, casillas, etc.)
+- Identifica todos los campos del FORMULARIO
 - Extrae los valores correspondientes de la imagen de DATOS
-- Devuelve ÚNICAMENTE un JSON válido con este formato exacto:
-
-{
-  "form_title": "Nombre del formulario identificado",
-  "fields": [
-    {"label": "Nombre del campo", "value": "Valor extraído de los datos", "confidence": "high"}
-  ]
-}
-
-Usa "confidence": "high" si el valor es claro, "low" si es difícil de leer.
-Si un campo no tiene dato correspondiente en la imagen de datos, pon "value": "".
-Sé exhaustivo — extrae TODOS los campos del formulario.`;
+- Devuelve únicamente JSON válido.`;
 
   const body = JSON.stringify({
     model: 'claude-sonnet-4-6',
@@ -41,26 +173,11 @@ Sé exhaustivo — extrae TODOS los campos del formulario.`;
     messages: [{
       role: 'user',
       content: [
-        {
-          type: 'text',
-          text: 'Imagen 1 — FORMULARIO (plantilla a completar):'
-        },
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: formMime, data: formImageB64 }
-        },
-        {
-          type: 'text',
-          text: 'Imagen 2 — DATOS (foto con la información a ingresar):'
-        },
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: dataMime, data: dataImageB64 }
-        },
-        {
-          type: 'text',
-          text: prompt
-        }
+        { type: 'text', text: 'Imagen 1 — FORMULARIO:' },
+        { type: 'image', source: { type: 'base64', media_type: formMime, data: formImageB64 } },
+        { type: 'text', text: 'Imagen 2 — DATOS:' },
+        { type: 'image', source: { type: 'base64', media_type: dataMime, data: dataImageB64 } },
+        { type: 'text', text: prompt }
       ]
     }]
   });
@@ -100,18 +217,18 @@ Sé exhaustivo — extrae TODOS los campos del formulario.`;
   });
 }
 
-function collectBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
 const server = http.createServer(async (req, res) => {
-  // API endpoint
-  if (req.method === 'POST' && req.url === '/api/analyze') {
+  const urlPath = req.url.split('?')[0];
+
+  if (urlPath === '/mcp') {
+    try {
+      return await handleMcp(req, res);
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message || 'Error MCP' });
+    }
+  }
+
+  if (req.method === 'POST' && urlPath === '/api/analyze') {
     try {
       const raw = await collectBody(req);
       const body = JSON.parse(raw.toString());
@@ -119,27 +236,26 @@ const server = http.createServer(async (req, res) => {
       const apiKey = body.apiKey || process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'API key requerida. Configúrala en ⚙️ o en la variable ANTHROPIC_API_KEY del servidor.' }));
+        return res.end(JSON.stringify({ error: 'API key requerida.' }));
       }
 
       const result = await callClaude(
         apiKey,
-        body.formImage, body.formMime || 'image/jpeg',
-        body.dataImage, body.dataMime || 'image/jpeg'
+        body.formImage,
+        body.formMime || 'image/jpeg',
+        body.dataImage,
+        body.dataMime || 'image/jpeg'
       );
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
-      const status = err.status || 500;
-      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.writeHead(err.status || 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message || 'Error interno' }));
     }
     return;
   }
 
-  // Static files
-  const urlPath = req.url.split('?')[0];
   const filePath = path.join(PUBLIC, urlPath === '/' ? 'index.html' : urlPath);
   const ext = path.extname(filePath);
 
@@ -148,11 +264,16 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(404);
       return res.end('Not found');
     }
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream'
+    });
+
     res.end(data);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`\n🚀 Markk corriendo en http://localhost:${PORT}\n`);
+  console.log(`🚀 Markk corriendo en puerto ${PORT}`);
+  console.log(`🔌 MCP activo en /mcp`);
 });
