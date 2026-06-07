@@ -7,12 +7,12 @@ const PUBLIC = path.join(__dirname, 'public');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css',
-  '.js': 'text/javascript',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
+  '.css':  'text/css',
+  '.js':   'text/javascript',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.ico': 'image/x-icon',
+  '.ico':  'image/x-icon',
 };
 
 function collectBody(req) {
@@ -42,14 +42,15 @@ function mcpError(id, code, message) {
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
 }
 
+function textContent(text) {
+  return [{ type: 'text', text }];
+}
+
 const MCP_TOOLS = [
   {
     name: 'estado_markk',
     description: 'Verifica si el servidor Markk está online.',
-    inputSchema: {
-      type: 'object',
-      properties: {}
-    }
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'completar_formulario_trauma',
@@ -69,27 +70,198 @@ const MCP_TOOLS = [
     }
   },
   {
-    name: 'preparar_formulario_medico',
-    description: 'Prepara campos para formularios médicos: PAMI, ambulancia, alta, internación domiciliaria o pedido de prótesis.',
+    name: 'pedido_protesis_cadera',
+    description: 'Genera un pedido de prótesis de cadera traumatológico.',
     inputSchema: {
       type: 'object',
       properties: {
-        tipo_formulario: { type: 'string' },
         paciente: { type: 'string' },
         edad: { type: 'string' },
         dni: { type: 'string' },
         obra_social: { type: 'string' },
         diagnostico: { type: 'string' },
         procedimiento: { type: 'string' },
-        sala_cama: { type: 'string' },
-        fecha: { type: 'string' },
+        implantes: { type: 'string' },
+        instrumental: { type: 'string' },
+        urgencia: { type: 'string' },
+        medico: { type: 'string' },
+        fecha: { type: 'string' }
+      },
+      required: ['paciente', 'diagnostico', 'procedimiento']
+    }
+  },
+  {
+    name: 'pedido_ambulancia',
+    description: 'Genera texto para pedido de ambulancia o traslado.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paciente: { type: 'string' },
+        dni: { type: 'string' },
+        edad: { type: 'string' },
+        obra_social: { type: 'string' },
+        origen: { type: 'string' },
+        destino: { type: 'string' },
+        fecha_hora: { type: 'string' },
+        diagnostico: { type: 'string' },
+        complejidad: { type: 'string' },
         medico: { type: 'string' },
         observaciones: { type: 'string' }
       },
-      required: ['tipo_formulario', 'paciente', 'diagnostico']
+      required: ['paciente', 'origen', 'destino', 'diagnostico']
+    }
+  },
+  {
+    name: 'epicrisis_trauma',
+    description: 'Genera una epicrisis traumatológica breve.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paciente: { type: 'string' },
+        edad: { type: 'string' },
+        dni: { type: 'string' },
+        obra_social: { type: 'string' },
+        fecha_ingreso: { type: 'string' },
+        fecha_egreso: { type: 'string' },
+        diagnostico: { type: 'string' },
+        cirugia: { type: 'string' },
+        evolucion: { type: 'string' },
+        indicaciones: { type: 'string' },
+        control: { type: 'string' },
+        medico: { type: 'string' }
+      },
+      required: ['paciente', 'diagnostico']
+    }
+  },
+  {
+    name: 'internacion_domiciliaria',
+    description: 'Genera texto para solicitud de internación domiciliaria o rehabilitación domiciliaria.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        paciente: { type: 'string' },
+        edad: { type: 'string' },
+        dni: { type: 'string' },
+        obra_social: { type: 'string' },
+        diagnostico: { type: 'string' },
+        motivo: { type: 'string' },
+        complejidad: { type: 'string' },
+        duracion: { type: 'string' },
+        kinesiologia: { type: 'string' },
+        enfermeria: { type: 'string' },
+        medico: { type: 'string' }
+      },
+      required: ['paciente', 'diagnostico', 'motivo']
     }
   }
 ];
+
+function buildFormularioTrauma(args) {
+  return [
+    'FORMULARIO TRAUMATOLOGÍA',
+    '',
+    `Paciente: ${args.paciente || ''}`,
+    args.edad ? `Edad: ${args.edad}` : null,
+    args.dni ? `DNI: ${args.dni}` : null,
+    args.sala_cama ? `Sala/Cama: ${args.sala_cama}` : null,
+    `Diagnóstico: ${args.diagnostico || ''}`,
+    args.procedimiento ? `Procedimiento/Plan: ${args.procedimiento}` : null,
+    args.observaciones ? `Observaciones: ${args.observaciones}` : null
+  ].filter(Boolean).join('\n');
+}
+
+function buildPedidoProtesisCadera(args) {
+  return [
+    'PEDIDO DE PRÓTESIS DE CADERA',
+    '',
+    `Paciente: ${args.paciente || ''}`,
+    args.edad ? `Edad: ${args.edad}` : null,
+    args.dni ? `DNI: ${args.dni}` : null,
+    args.obra_social ? `Obra social: ${args.obra_social}` : null,
+    '',
+    `Diagnóstico: ${args.diagnostico || ''}`,
+    `Procedimiento solicitado: ${args.procedimiento || ''}`,
+    '',
+    'Materiales / implantes solicitados:',
+    args.implantes || '- Completar implantes según planificación.',
+    '',
+    'Instrumental especial:',
+    args.instrumental || '- Instrumental habitual para artroplastia de cadera.',
+    '',
+    args.urgencia ? `Urgencia / fecha tentativa: ${args.urgencia}` : null,
+    args.fecha ? `Fecha: ${args.fecha}` : null,
+    '',
+    args.medico ? `Médico solicitante: ${args.medico}` : 'Médico solicitante:'
+  ].filter(Boolean).join('\n');
+}
+
+function buildPedidoAmbulancia(args) {
+  return [
+    'PEDIDO DE AMBULANCIA / TRASLADO',
+    '',
+    `Paciente: ${args.paciente || ''}`,
+    args.edad ? `Edad: ${args.edad}` : null,
+    args.dni ? `DNI: ${args.dni}` : null,
+    args.obra_social ? `Obra social: ${args.obra_social}` : null,
+    '',
+    `Origen: ${args.origen || ''}`,
+    `Destino: ${args.destino || ''}`,
+    args.fecha_hora ? `Fecha y hora solicitada: ${args.fecha_hora}` : null,
+    '',
+    `Diagnóstico: ${args.diagnostico || ''}`,
+    args.complejidad ? `Complejidad: ${args.complejidad}` : 'Complejidad: baja complejidad / sin médico, salvo indicación contraria.',
+    args.observaciones ? `Observaciones: ${args.observaciones}` : null,
+    '',
+    args.medico ? `Médico solicitante: ${args.medico}` : 'Médico solicitante:'
+  ].filter(Boolean).join('\n');
+}
+
+function buildEpicrisisTrauma(args) {
+  return [
+    'EPICRISIS TRAUMATOLÓGICA',
+    '',
+    `Paciente: ${args.paciente || ''}`,
+    args.edad ? `Edad: ${args.edad}` : null,
+    args.dni ? `DNI: ${args.dni}` : null,
+    args.obra_social ? `Obra social: ${args.obra_social}` : null,
+    args.fecha_ingreso ? `Fecha de ingreso: ${args.fecha_ingreso}` : null,
+    args.fecha_egreso ? `Fecha de egreso: ${args.fecha_egreso}` : null,
+    '',
+    `Diagnóstico: ${args.diagnostico || ''}`,
+    args.cirugia ? `Cirugía / procedimiento: ${args.cirugia}` : null,
+    '',
+    'Evolución:',
+    args.evolucion || 'Paciente con evolución clínica favorable, lúcido/a, afebril, hemodinámicamente estable, herida quirúrgica sin signos de infección al momento del alta.',
+    '',
+    'Indicaciones:',
+    args.indicaciones || '- Analgesia según indicación médica.\n- Control por consultorio externo.\n- Pautas de alarma.\n- Rehabilitación según tolerancia e indicación traumatológica.',
+    '',
+    args.control ? `Control: ${args.control}` : null,
+    '',
+    args.medico ? `Médico: ${args.medico}` : 'Médico:'
+  ].filter(Boolean).join('\n');
+}
+
+function buildInternacionDomiciliaria(args) {
+  return [
+    'SOLICITUD DE INTERNACIÓN DOMICILIARIA',
+    '',
+    `Paciente: ${args.paciente || ''}`,
+    args.edad ? `Edad: ${args.edad}` : null,
+    args.dni ? `DNI: ${args.dni}` : null,
+    args.obra_social ? `Obra social: ${args.obra_social}` : null,
+    '',
+    `Diagnóstico: ${args.diagnostico || ''}`,
+    `Motivo de solicitud: ${args.motivo || ''}`,
+    args.complejidad ? `Complejidad: ${args.complejidad}` : 'Complejidad: baja complejidad.',
+    args.duracion ? `Duración solicitada: ${args.duracion}` : 'Duración solicitada: 30 días.',
+    '',
+    args.kinesiologia ? `Kinesiología: ${args.kinesiologia}` : null,
+    args.enfermeria ? `Enfermería: ${args.enfermeria}` : null,
+    '',
+    args.medico ? `Médico solicitante: ${args.medico}` : 'Médico solicitante:'
+  ].filter(Boolean).join('\n');
+}
 
 async function handleMcp(req, res) {
   if (req.method === 'OPTIONS') {
@@ -105,7 +277,8 @@ async function handleMcp(req, res) {
     return sendJson(res, 200, {
       name: 'Trauma Forma AI',
       status: 'online',
-      endpoint: '/mcp'
+      endpoint: '/mcp',
+      tools: MCP_TOOLS.map(t => t.name)
     });
   }
 
@@ -120,7 +293,7 @@ async function handleMcp(req, res) {
       capabilities: { tools: {} },
       serverInfo: {
         name: 'Trauma Forma AI',
-        version: '1.0.0'
+        version: '1.1.0'
       }
     }));
   }
@@ -142,48 +315,37 @@ async function handleMcp(req, res) {
 
     if (toolName === 'estado_markk') {
       return sendJson(res, 200, mcpResponse(id, {
-        content: [
-          {
-            type: 'text',
-            text: 'Markk está online. Endpoint MCP activo: /mcp'
-          }
-        ]
+        content: textContent('✅ estado_markk verificado\n\nMarkk está online.\nEndpoint MCP activo: /mcp 🟢')
       }));
     }
 
     if (toolName === 'completar_formulario_trauma') {
-      const texto = [
-        `Paciente: ${args.paciente || ''}`,
-        args.edad ? `Edad: ${args.edad}` : null,
-        args.dni ? `DNI: ${args.dni}` : null,
-        args.sala_cama ? `Sala/Cama: ${args.sala_cama}` : null,
-        `Diagnóstico: ${args.diagnostico || ''}`,
-        args.procedimiento ? `Procedimiento/Plan: ${args.procedimiento}` : null,
-        args.observaciones ? `Observaciones: ${args.observaciones}` : null
-      ].filter(Boolean).join('\n');
-
       return sendJson(res, 200, mcpResponse(id, {
-        content: [{ type: 'text', text: texto }]
+        content: textContent(buildFormularioTrauma(args))
       }));
     }
 
-    if (toolName === 'preparar_formulario_medico') {
-      const texto = [
-        `Tipo de formulario: ${args.tipo_formulario || ''}`,
-        `Paciente: ${args.paciente || ''}`,
-        args.edad ? `Edad: ${args.edad}` : null,
-        args.dni ? `DNI: ${args.dni}` : null,
-        args.obra_social ? `Obra social: ${args.obra_social}` : null,
-        args.sala_cama ? `Sala/Cama: ${args.sala_cama}` : null,
-        `Diagnóstico: ${args.diagnostico || ''}`,
-        args.procedimiento ? `Procedimiento/Plan: ${args.procedimiento}` : null,
-        args.fecha ? `Fecha: ${args.fecha}` : null,
-        args.medico ? `Médico: ${args.medico}` : null,
-        args.observaciones ? `Observaciones: ${args.observaciones}` : null
-      ].filter(Boolean).join('\n');
-
+    if (toolName === 'pedido_protesis_cadera') {
       return sendJson(res, 200, mcpResponse(id, {
-        content: [{ type: 'text', text: texto }]
+        content: textContent(buildPedidoProtesisCadera(args))
+      }));
+    }
+
+    if (toolName === 'pedido_ambulancia') {
+      return sendJson(res, 200, mcpResponse(id, {
+        content: textContent(buildPedidoAmbulancia(args))
+      }));
+    }
+
+    if (toolName === 'epicrisis_trauma') {
+      return sendJson(res, 200, mcpResponse(id, {
+        content: textContent(buildEpicrisisTrauma(args))
+      }));
+    }
+
+    if (toolName === 'internacion_domiciliaria') {
+      return sendJson(res, 200, mcpResponse(id, {
+        content: textContent(buildInternacionDomiciliaria(args))
       }));
     }
 
@@ -199,8 +361,8 @@ async function callClaude(apiKey, formImageB64, formMime, dataImageB64, dataMime
 2. DATOS: una imagen/foto con los datos que deben completar ese formulario
 
 Tu tarea:
-- Identifica todos los campos del FORMULARIO.
-- Extrae los valores correspondientes de la imagen de DATOS.
+- Identifica todos los campos del FORMULARIO
+- Extrae los valores correspondientes de la imagen de DATOS
 - Devuelve únicamente JSON válido.`;
 
   const body = JSON.stringify({
@@ -231,51 +393,25 @@ Tu tarea:
   };
 
   return new Promise((resolve, reject) => {
-    const request = require('https').request(options, response => {
+    const req = require('https').request(options, res => {
       let data = '';
-
-      response.on('data', chunk => data += chunk);
-
-      response.on('end', () => {
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-
-          if (parsed.error) {
-            return reject({
-              status: response.statusCode,
-              message: parsed.error.message
-            });
-          }
-
+          if (parsed.error) return reject({ status: res.statusCode, message: parsed.error.message });
           const text = parsed.content[0].text.trim();
           const match = text.match(/\{[\s\S]*\}/);
-
-          if (!match) {
-            return reject({
-              status: 500,
-              message: 'Respuesta inesperada de la IA'
-            });
-          }
-
+          if (!match) return reject({ status: 500, message: 'Respuesta inesperada de la IA' });
           resolve(JSON.parse(match[0]));
-        } catch (error) {
-          reject({
-            status: 500,
-            message: 'Error procesando respuesta: ' + error.message
-          });
+        } catch(e) {
+          reject({ status: 500, message: 'Error procesando respuesta: ' + e.message });
         }
       });
     });
-
-    request.on('error', error => {
-      reject({
-        status: 503,
-        message: error.message
-      });
-    });
-
-    request.write(body);
-    request.end();
+    req.on('error', e => reject({ status: 503, message: e.message }));
+    req.write(body);
+    req.end();
   });
 }
 
@@ -285,10 +421,8 @@ const server = http.createServer(async (req, res) => {
   if (urlPath === '/mcp') {
     try {
       return await handleMcp(req, res);
-    } catch (error) {
-      return sendJson(res, 500, {
-        error: error.message || 'Error MCP'
-      });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message || 'Error MCP' });
     }
   }
 
@@ -298,15 +432,9 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(raw.toString());
 
       const apiKey = body.apiKey || process.env.ANTHROPIC_API_KEY;
-
       if (!apiKey) {
-        res.writeHead(400, {
-          'Content-Type': 'application/json'
-        });
-
-        return res.end(JSON.stringify({
-          error: 'API key requerida.'
-        }));
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'API key requerida.' }));
       }
 
       const result = await callClaude(
@@ -317,33 +445,20 @@ const server = http.createServer(async (req, res) => {
         body.dataMime || 'image/jpeg'
       );
 
-      res.writeHead(200, {
-        'Content-Type': 'application/json'
-      });
-
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
-    } catch (error) {
-      res.writeHead(error.status || 500, {
-        'Content-Type': 'application/json'
-      });
-
-      res.end(JSON.stringify({
-        error: error.message || 'Error interno'
-      }));
+    } catch (err) {
+      res.writeHead(err.status || 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Error interno' }));
     }
-
     return;
   }
 
-  const filePath = path.join(
-    PUBLIC,
-    urlPath === '/' ? 'index.html' : urlPath
-  );
-
+  const filePath = path.join(PUBLIC, urlPath === '/' ? 'index.html' : urlPath);
   const ext = path.extname(filePath);
 
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
       res.writeHead(404);
       return res.end('Not found');
     }
