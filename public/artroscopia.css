@@ -1,0 +1,186 @@
+/* ── Simulator Layout ── */
+.sim-main { max-width: 1100px; margin: 0 auto; }
+.sim-intro {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 20px;
+}
+
+.sim-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.viewport-col { min-width: 0; }
+
+/* ── Viewport ── */
+.viewport-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+
+#sim-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+#sim-canvas:active { cursor: grabbing; }
+
+.scope-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 58%, rgba(0,0,0,0.92) 78%);
+}
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  pointer-events: none;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  border-radius: 50%;
+}
+.crosshair::before, .crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.55);
+}
+.crosshair::before { left: 50%; top: -6px; width: 1.5px; height: 6px; margin-left: -0.75px; }
+.crosshair::after { left: 50%; bottom: -6px; width: 1.5px; height: 6px; margin-left: -0.75px; }
+
+.structure-label {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,10,18,0.78);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 30px;
+  text-align: center;
+  max-width: 88%;
+  pointer-events: none;
+  backdrop-filter: blur(3px);
+}
+.structure-label .label-name { display: block; font-weight: 700; font-size: 0.92rem; }
+.structure-label .label-desc { display: block; font-size: 0.76rem; color: rgba(255,255,255,0.75); margin-top: 2px; }
+
+.sim-readout {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  pointer-events: none;
+  background: rgba(10,10,18,0.65);
+  color: #cdeeff;
+  font-size: 0.72rem;
+  font-family: monospace;
+  padding: 5px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.02em;
+}
+
+.inset-frame {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.inset-tag {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.65);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sim-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ── Control Panel ── */
+.control-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 20px;
+}
+.control-group { display: flex; flex-direction: column; gap: 8px; }
+.control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill-btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+.pill-btn:hover { background: var(--border); }
+.pill-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.checklist-group { border-top: 1px solid var(--border); padding-top: 14px; }
+.checklist { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.struct-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+.struct-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+}
+.struct-item.found { color: var(--text); font-weight: 600; }
+.struct-item.found .struct-dot { background: var(--success); border-color: var(--success); color: #fff; }
+
+@media (max-width: 880px) {
+  .sim-layout { grid-template-columns: 1fr; }
+  .control-panel { position: static; }
+}
