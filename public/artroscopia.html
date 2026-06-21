@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markk — Simulador de artroscopia</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="artroscopia.css" />
+</head>
+<body>
+
+  <div class="app sim-app">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">🦴</span>
+        <span class="logo-text">Simulador de artroscopia</span>
+      </div>
+      <a href="index.html" class="btn ghost small" style="text-decoration:none;">← Markk</a>
+    </header>
+
+    <main class="sim-main">
+      <p class="sim-intro">
+        Navegá el interior de una rodilla simulada con un artroscopio virtual. Elegí el portal de entrada,
+        insertá la óptica, rotala y angulala para identificar las estructuras anatómicas del compartimento.
+      </p>
+
+      <div class="sim-layout">
+        <div class="viewport-col">
+          <div id="viewport-wrap" class="viewport-wrap">
+            <canvas id="sim-canvas"></canvas>
+            <div class="scope-mask"></div>
+            <div class="crosshair"></div>
+            <div id="structure-label" class="structure-label hidden">
+              <span class="label-name"></span>
+              <span class="label-desc"></span>
+            </div>
+            <div id="readout" class="sim-readout"></div>
+            <div id="inset-frame" class="inset-frame">
+              <span class="inset-tag">Vista externa</span>
+            </div>
+          </div>
+          <p class="sim-hint">🖱️ Arrastrá sobre la vista para dirigir el artroscopio · usá los controles para insertar, rotar y angular la óptica.</p>
+        </div>
+
+        <aside class="control-panel">
+          <div class="control-group">
+            <p class="mini-label">Portal de entrada</p>
+            <div class="pill-group" id="portal-buttons">
+              <button class="pill-btn active" data-portal="AL">Anterolateral</button>
+              <button class="pill-btn" data-portal="AM">Anteromedial</button>
+              <button class="pill-btn" data-portal="PM">Posteromedial</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <p class="mini-label">Ángulo de la óptica</p>
+            <div class="pill-group" id="lens-buttons">
+              <button class="pill-btn" data-angle="0">0°</button>
+              <button class="pill-btn active" data-angle="30">30°</button>
+              <button class="pill-btn" data-angle="70">70°</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label class="mini-label" for="depth-range">Profundidad de inserción</label>
+            <input type="range" id="depth-range" min="0" max="9" step="0.1" value="3" />
+          </div>
+
+          <div class="control-group">
+            <label class="mini-label" for="rotation-range">Rotación de la óptica</label>
+            <input type="range" id="rotation-range" min="0" max="360" step="1" value="0" />
+          </div>
+
+          <div class="control-group">
+            <label class="mini-label" for="light-range">Intensidad de luz</label>
+            <input type="range" id="light-range" min="2" max="22" step="1" value="12" />
+          </div>
+
+          <div class="control-group">
+            <label class="mini-label" for="fov-range">Campo visual (zoom)</label>
+            <input type="range" id="fov-range" min="60" max="100" step="1" value="80" />
+          </div>
+
+          <button id="reset-btn" class="btn secondary small" style="width:100%;">↺ Reiniciar vista</button>
+
+          <div class="control-group checklist-group">
+            <p class="mini-label">Estructuras a identificar <span id="checklist-count">(0/6)</span></p>
+            <ul id="checklist" class="checklist"></ul>
+          </div>
+        </aside>
+      </div>
+
+      <p class="footer-note">⚕️ Modelo 3D simplificado con fines educativos y de demostración — no reemplaza un simulador clínico certificado ni sustituye entrenamiento quirúrgico real.</p>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="artroscopia.js"></script>
+</body>
+</html>
