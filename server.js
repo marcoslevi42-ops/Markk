@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const sihosp = require('./sihosp');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -152,6 +153,30 @@ const MCP_TOOLS = [
         medico: { type: 'string' }
       },
       required: ['paciente', 'diagnostico', 'motivo']
+    }
+  },
+  {
+    name: 'cargar_en_sihosp',
+    description: 'Conector a siHosp: abre el formulario web de siHosp, hace login y autocompleta los campos indicados. Por defecto NO envía el formulario (modo revisión), salvo que se pase submit=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        campos: {
+          type: 'array',
+          description: 'Lista de campos a cargar. Cada uno con label (nombre del campo) y value (valor).',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              value: { type: 'string' }
+            },
+            required: ['label', 'value']
+          }
+        },
+        formUrl: { type: 'string', description: 'Ruta o URL del formulario destino (opcional, sobreescribe la config).' },
+        submit: { type: 'boolean', description: 'Si es true, envía el formulario. Por defecto false (solo completa).' }
+      },
+      required: ['campos']
     }
   }
 ];
@@ -349,6 +374,33 @@ async function handleMcp(req, res) {
       }));
     }
 
+    if (toolName === 'cargar_en_sihosp') {
+      try {
+        const overrides = {};
+        if (typeof args.submit === 'boolean') overrides.submit = args.submit;
+        if (args.formUrl) overrides.form = { url: args.formUrl };
+        const result = await sihosp.fillForm(args.campos || [], overrides);
+        const resumen = [
+          '📋 Conector siHosp',
+          '',
+          `Campos cargados: ${result.filled.length}`,
+          ...result.filled.map(f => `  ✔ ${f.label}: ${f.value}`),
+          result.missing.length ? `\nSin cargar: ${result.missing.length}` : null,
+          ...result.missing.map(m => `  ✖ ${m.label} (${m.reason})`),
+          '',
+          result.submitted ? 'Formulario ENVIADO ✅' : 'Formulario completado, pendiente de revisión/envío.'
+        ].filter(Boolean).join('\n');
+        return sendJson(res, 200, mcpResponse(id, {
+          content: textContent(resumen)
+        }));
+      } catch (err) {
+        return sendJson(res, 200, mcpResponse(id, {
+          content: textContent('❌ Error en el conector siHosp: ' + (err.message || err)),
+          isError: true
+        }));
+      }
+    }
+
     return sendJson(res, 200, mcpError(id, -32601, 'Herramienta no encontrada'));
   }
 
@@ -450,6 +502,26 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       res.writeHead(err.status || 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message || 'Error interno' }));
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && urlPath === '/api/sihosp') {
+    try {
+      const raw = await collectBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+
+      const overrides = {};
+      if (typeof body.submit === 'boolean') overrides.submit = body.submit;
+      if (body.formUrl) overrides.form = { url: body.formUrl };
+
+      const result = await sihosp.fillForm(body.campos || body.fields || [], overrides);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(err.status || 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message || 'Error en el conector siHosp' }));
     }
     return;
   }

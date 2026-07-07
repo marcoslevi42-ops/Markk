@@ -1,0 +1,36 @@
+{
+  "__doc__": "Configuración del conector a siHosp. Ajustá los valores con la URL y los selectores reales del sitio. Las credenciales NO se guardan aquí: se leen de variables de entorno (SIHOSP_USER / SIHOSP_PASS).",
+
+  "baseUrl": "https://sihosp.example.com",
+
+  "headless": true,
+  "timeoutMs": 30000,
+  "submit": false,
+  "screenshot": true,
+
+  "login": {
+    "enabled": true,
+    "url": "/login",
+    "userSelector": "input[name='usuario'], input[name='username'], #usuario, #username",
+    "passSelector": "input[type='password'], input[name='clave'], input[name='password'], #password",
+    "submitSelector": "button[type='submit'], input[type='submit']",
+    "successSelector": null,
+    "userEnv": "SIHOSP_USER",
+    "passEnv": "SIHOSP_PASS"
+  },
+
+  "form": {
+    "url": "/formulario",
+    "readySelector": "form",
+    "submitSelector": "button[type='submit'], input[type='submit']"
+  },
+
+  "fieldMap": {
+    "__doc__": "Overrides opcionales: label del campo (como lo devuelve el análisis) -> selector CSS del input en siHosp. Si un campo no está acá, el conector intenta emparejarlo automáticamente por label/name/id/placeholder.",
+    "Paciente": "#paciente",
+    "DNI": "#dni",
+    "Edad": "#edad",
+    "Obra social": "#obra_social",
+    "Diagnóstico": "#diagnostico"
+  }
+}
