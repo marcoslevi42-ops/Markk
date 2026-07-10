@@ -20,9 +20,9 @@
   },
 
   "form": {
-    "__doc__": "Completá 'url' con la ruta del formulario destino dentro de siHosp (después del login).",
-    "url": "/",
-    "readySelector": "form",
+    "__doc__": "Dejá 'url' vacío para completar la página que aparece después del login. O poné la ruta de un formulario específico dentro de siHosp.",
+    "url": "",
+    "readySelector": null,
     "submitSelector": "button[type='submit'], input[type='submit']"
   },
 

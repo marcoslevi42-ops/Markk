@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "postinstall": "playwright install chromium || true"
   },
   "dependencies": {
     "playwright": "^1.61.1"

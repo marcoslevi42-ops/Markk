@@ -54,7 +54,12 @@ function norm(str) {
 
 /** Lanza Chromium usando el binario preinstalado si está disponible. */
 async function launchBrowser(playwright, cfg) {
-  const opts = { headless: cfg.headless !== false };
+  const opts = {
+    headless: cfg.headless !== false,
+    // --no-sandbox es necesario para correr Chromium dentro de contenedores
+    // (Railway, Docker) donde suele ejecutarse como root.
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+  };
   // En entornos con Chromium preinstalado (PLAYWRIGHT_BROWSERS_PATH) Playwright
   // lo encuentra solo; si se define SIHOSP_CHROMIUM se usa ese ejecutable.
   if (process.env.SIHOSP_CHROMIUM) opts.executablePath = process.env.SIHOSP_CHROMIUM;
@@ -63,6 +68,18 @@ async function launchBrowser(playwright, cfg) {
   } catch (e) {
     throw new Error('No se pudo iniciar el navegador: ' + e.message);
   }
+}
+
+/** Devuelve el primer locator visible de una lista de selectores candidatos. */
+async function firstVisible(page, selectors) {
+  for (const sel of selectors) {
+    if (!sel) continue;
+    const loc = page.locator(sel).first();
+    try {
+      if (await loc.count() && await loc.isVisible()) return loc;
+    } catch (_) { /* selector inválido: seguir */ }
+  }
+  return null;
 }
 
 async function doLogin(page, cfg, log) {
@@ -81,18 +98,36 @@ async function doLogin(page, cfg, log) {
   const loginUrl = new URL(l.url || '/login', cfg.baseUrl).toString();
   log.push('Navegando al login: ' + loginUrl);
   await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(600);
 
-  await page.fill(l.userSelector, user);
-  await page.fill(l.passSelector, pass);
+  // Campo de usuario: selector configurado o heurística (primer input de texto visible).
+  const userLoc = await firstVisible(page, [
+    l.userSelector,
+    "input[name*='usuario' i]", "input[name*='user' i]", "input[id*='usuario' i]", "input[id*='user' i]",
+    "input[type='email']", "input[type='text']", "input:not([type])"
+  ]);
+  if (!userLoc) throw new Error('No se encontró el campo de usuario en el login de siHosp.');
+  await userLoc.fill(user);
+
+  // Campo de contraseña: siempre es el input de tipo password.
+  const passLoc = await firstVisible(page, [l.passSelector, "input[type='password']"]);
+  if (!passLoc) throw new Error('No se encontró el campo de contraseña en el login de siHosp.');
+  await passLoc.fill(pass);
+
+  // Enviar: botón submit si existe; si no, Enter en el campo de contraseña.
+  const submitLoc = await firstVisible(page, [
+    l.submitSelector, "button[type='submit']", "input[type='submit']", "button"
+  ]);
   await Promise.all([
     page.waitForLoadState('networkidle').catch(() => {}),
-    page.click(l.submitSelector)
+    submitLoc ? submitLoc.click() : passLoc.press('Enter')
   ]);
+  await page.waitForTimeout(1000);
 
   if (l.successSelector) {
     await page.waitForSelector(l.successSelector, { timeout: cfg.timeoutMs || 30000 });
   }
-  log.push('Login completado.');
+  log.push('Login enviado. Página actual: ' + page.url());
 }
 
 /**
@@ -189,12 +224,20 @@ async function fillForm(fields, overrides = {}) {
 
     await doLogin(page, cfg, log);
 
-    const formUrl = new URL((cfg.form && cfg.form.url) || '/', cfg.baseUrl).toString();
-    log.push('Navegando al formulario: ' + formUrl);
-    await page.goto(formUrl, { waitUntil: 'domcontentloaded' });
-    if (cfg.form && cfg.form.readySelector) {
-      await page.waitForSelector(cfg.form.readySelector).catch(() => {});
+    // Si hay una URL de formulario configurada, navegamos; si no, completamos
+    // la página a la que llegó el login (modo "hacelo andar" sin config extra).
+    const formPath = cfg.form && cfg.form.url;
+    if (formPath && formPath !== '/' && formPath.trim() !== '') {
+      const formUrl = new URL(formPath, cfg.baseUrl).toString();
+      log.push('Navegando al formulario: ' + formUrl);
+      await page.goto(formUrl, { waitUntil: 'domcontentloaded' });
+    } else {
+      log.push('Sin form.url configurada: se completa la página actual tras el login.');
     }
+    if (cfg.form && cfg.form.readySelector) {
+      await page.waitForSelector(cfg.form.readySelector, { timeout: 5000 }).catch(() => {});
+    }
+    await page.waitForTimeout(400);
 
     for (const field of fields) {
       const label = field.label || field.campo || '';
