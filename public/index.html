@@ -24,6 +24,25 @@
     </div>
   </div>
 
+  <!-- siHosp Credentials Modal -->
+  <div id="sihosp-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>Acceso a siHosp</h2>
+      <p>Tu usuario y contraseña de siHosp. Se guardan solo en tu navegador y se usan para iniciar sesión al cargar el formulario.</p>
+      <div class="input-group">
+        <input type="text" id="sihosp-user-input" placeholder="Usuario" autocomplete="off" />
+      </div>
+      <div class="input-group">
+        <input type="password" id="sihosp-pass-input" placeholder="Contraseña" autocomplete="off" />
+        <button id="toggle-sihosp-pass" class="icon-btn">👁</button>
+      </div>
+      <div class="modal-actions">
+        <button id="sihosp-cancel-btn" class="btn ghost">Cancelar</button>
+        <button id="sihosp-save-btn" class="btn primary">Guardar y cargar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
     <header>
       <div class="logo">
@@ -139,6 +158,7 @@
           <div class="results-actions">
             <button id="copy-btn" class="btn secondary">📋 Copiar</button>
             <button id="csv-btn" class="btn secondary">💾 CSV</button>
+            <button id="sihosp-btn" class="btn primary">🏥 Cargar en siHosp</button>
             <button class="btn ghost" onclick="resetAll()">🔄 Nuevo</button>
           </div>
         </div>
