@@ -82,15 +82,17 @@ async function firstVisible(page, selectors) {
   return null;
 }
 
-async function doLogin(page, cfg, log) {
+async function doLogin(page, cfg, log, creds = {}) {
   const l = cfg.login || {};
   if (!l.enabled) { log.push('Login deshabilitado, se omite.'); return; }
 
-  const user = process.env[l.userEnv || 'SIHOSP_USER'];
-  const pass = process.env[l.passEnv || 'SIHOSP_PASS'];
+  // Prioridad: credenciales pasadas en el pedido > variables de entorno.
+  const user = creds.user || process.env[l.userEnv || 'SIHOSP_USER'];
+  const pass = creds.pass || process.env[l.passEnv || 'SIHOSP_PASS'];
   if (!user || !pass) {
     throw new Error(
-      `Faltan credenciales: definí las variables de entorno ` +
+      'Faltan las credenciales de siHosp. Cargá tu usuario y contraseña ' +
+      'en la app (botón siHosp) o definí las variables de entorno ' +
       `${l.userEnv || 'SIHOSP_USER'} y ${l.passEnv || 'SIHOSP_PASS'}.`
     );
   }
@@ -206,6 +208,8 @@ async function fillControl(loc, value) {
  * @returns {Promise<{ok:boolean, filled:Array, missing:Array, submitted:boolean, screenshot:?string, log:Array}>}
  */
 async function fillForm(fields, overrides = {}) {
+  // Las credenciales no forman parte de la config: se extraen aparte.
+  const creds = { user: overrides.user, pass: overrides.pass };
   const cfg = loadConfig(overrides);
   const playwright = requirePlaywright();
   const log = [];
@@ -222,7 +226,7 @@ async function fillForm(fields, overrides = {}) {
     const page = await context.newPage();
     page.setDefaultTimeout(cfg.timeoutMs || 30000);
 
-    await doLogin(page, cfg, log);
+    await doLogin(page, cfg, log, creds);
 
     // Si hay una URL de formulario configurada, navegamos; si no, completamos
     // la página a la que llegó el login (modo "hacelo andar" sin config extra).

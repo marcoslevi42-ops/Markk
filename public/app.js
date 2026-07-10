@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDropZones();
   setupFileInputs();
   setupButtons();
+  setupSihospModal();
   if (!getApiKey()) showApiModal();
 });
 
@@ -307,13 +308,57 @@ function exportCsv() {
 function csvEsc(s) { return String(s).replace(/"/g,'""'); }
 
 /* ── siHosp Connector ── */
+function getSihospCreds() {
+  return {
+    user: localStorage.getItem('markk_sihosp_user') || '',
+    pass: localStorage.getItem('markk_sihosp_pass') || ''
+  };
+}
+
+function showSihospModal() {
+  const { user, pass } = getSihospCreds();
+  document.getElementById('sihosp-user-input').value = user;
+  document.getElementById('sihosp-pass-input').value = pass;
+  document.getElementById('sihosp-modal').classList.remove('hidden');
+}
+function hideSihospModal() {
+  document.getElementById('sihosp-modal').classList.add('hidden');
+}
+
+function setupSihospModal() {
+  document.getElementById('sihosp-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('sihosp-modal')) hideSihospModal();
+  });
+  document.getElementById('sihosp-cancel-btn').addEventListener('click', hideSihospModal);
+  document.getElementById('toggle-sihosp-pass').addEventListener('click', () => {
+    const inp = document.getElementById('sihosp-pass-input');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+  document.getElementById('sihosp-save-btn').addEventListener('click', () => {
+    const user = document.getElementById('sihosp-user-input').value.trim();
+    const pass = document.getElementById('sihosp-pass-input').value;
+    if (!user || !pass) return showToast('Ingresá usuario y contraseña');
+    localStorage.setItem('markk_sihosp_user', user);
+    localStorage.setItem('markk_sihosp_pass', pass);
+    hideSihospModal();
+    runSihospLoad();
+  });
+}
+
 async function sendToSihosp() {
+  const { user, pass } = getSihospCreds();
+  if (!user || !pass) return showSihospModal();   // primera vez: pedir credenciales
+  runSihospLoad();
+}
+
+async function runSihospLoad() {
   const campos = currentFields
     .filter(f => f.value && f.value.trim())
     .map(f => ({ label: f.label, value: f.value }));
 
   if (!campos.length) return showToast('No hay datos para cargar');
 
+  const { user, pass } = getSihospCreds();
   const btn = document.getElementById('sihosp-btn');
   const original = btn.textContent;
   btn.disabled = true;
@@ -323,7 +368,7 @@ async function sendToSihosp() {
     const res = await fetch('/api/sihosp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campos })
+      body: JSON.stringify({ campos, user, pass })
     });
     const result = await res.json();
 
@@ -334,7 +379,13 @@ async function sendToSihosp() {
       (result.submitted ? ' · enviado' : ' · pendiente de envío');
     showToast(msg, 5000);
   } catch (err) {
-    showToast('❌ ' + (err.message || 'Error al cargar en siHosp'), 6000);
+    // Si el error parece de credenciales, reabrir el modal.
+    if (/credencial|login|usuario|contrase/i.test(err.message || '')) {
+      showToast('❌ ' + err.message, 5000);
+      showSihospModal();
+    } else {
+      showToast('❌ ' + (err.message || 'Error al cargar en siHosp'), 6000);
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = original;

@@ -379,6 +379,8 @@ async function handleMcp(req, res) {
         const overrides = {};
         if (typeof args.submit === 'boolean') overrides.submit = args.submit;
         if (args.formUrl) overrides.form = { url: args.formUrl };
+        if (args.usuario) overrides.user = args.usuario;
+        if (args.clave) overrides.pass = args.clave;
         const result = await sihosp.fillForm(args.campos || [], overrides);
         const resumen = [
           '📋 Conector siHosp',
@@ -514,6 +516,8 @@ const server = http.createServer(async (req, res) => {
       const overrides = {};
       if (typeof body.submit === 'boolean') overrides.submit = body.submit;
       if (body.formUrl) overrides.form = { url: body.formUrl };
+      if (body.user) overrides.user = body.user;
+      if (body.pass) overrides.pass = body.pass;
 
       const result = await sihosp.fillForm(body.campos || body.fields || [], overrides);
 
