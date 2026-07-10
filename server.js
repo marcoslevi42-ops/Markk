@@ -174,7 +174,9 @@ const MCP_TOOLS = [
           }
         },
         formUrl: { type: 'string', description: 'Ruta o URL del formulario destino (opcional, sobreescribe la config).' },
-        submit: { type: 'boolean', description: 'Si es true, envía el formulario. Por defecto false (solo completa).' }
+        submit: { type: 'boolean', description: 'Si es true, envía el formulario. Por defecto false (solo completa).' },
+        usuario: { type: 'string', description: 'Usuario de siHosp (opcional si el servidor tiene SIHOSP_USER configurado).' },
+        clave: { type: 'string', description: 'Contraseña de siHosp (opcional si el servidor tiene SIHOSP_PASS configurado).' }
       },
       required: ['campos']
     }
