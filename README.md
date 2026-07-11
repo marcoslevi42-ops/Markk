@@ -3,7 +3,20 @@
 Llenado automático de formularios clínicos desde fotos con IA, con servidor MCP
 y **conector a siHosp** para autocompletar formularios web.
 
-## Puesta en marcha
+## Desplegar en un clic (gratis)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/marcoslevi42-ops/Markk)
+
+1. Tocá el botón y entrá a Render con tu cuenta de **GitHub** (gratis, sin tarjeta).
+2. Cuando pida `SIHOSP_USER` y `SIHOSP_PASS`, poné tu usuario y contraseña de siHosp.
+3. Al terminar el deploy, copiá la URL de la app (algo como `https://markk.onrender.com`).
+4. En **claude.ai → Configuración → Conectores → Agregar conector personalizado**,
+   pegá esa URL agregándole `/mcp` al final: `https://markk.onrender.com/mcp`.
+
+> El plan gratuito de Render "duerme" la app tras 15 min sin uso; el primer pedido
+> después de eso tarda ~1 minuto en despertar.
+
+## Puesta en marcha local
 
 ```bash
 npm install
