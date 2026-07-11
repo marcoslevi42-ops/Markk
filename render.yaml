@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: markk
+    runtime: docker
+    plan: free
+    healthCheckPath: /mcp
+    envVars:
+      - key: SIHOSP_USER
+        sync: false
+      - key: SIHOSP_PASS
+        sync: false
