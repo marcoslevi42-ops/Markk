@@ -409,6 +409,7 @@ async function handleMcp(req, res) {
         if (args.usuario) overrides.user = args.usuario;
         if (args.clave) overrides.pass = args.clave;
         const result = await sihosp.fillForm(args.campos || [], overrides);
+        const p = result.pagina || {};
         const resumen = [
           '📋 Conector siHosp',
           '',
@@ -417,11 +418,26 @@ async function handleMcp(req, res) {
           result.missing.length ? `\nSin cargar: ${result.missing.length}` : null,
           ...result.missing.map(m => `  ✖ ${m.label} (${m.reason})`),
           '',
-          result.submitted ? 'Formulario ENVIADO ✅' : 'Formulario completado, pendiente de revisión/envío.'
+          result.submitted ? 'Formulario ENVIADO ✅' : 'Formulario completado, pendiente de revisión/envío.',
+          '',
+          '— Diagnóstico —',
+          ...(result.log || []).map(l => `· ${l}`),
+          p.url ? `Página final: ${p.url} (${p.title || 'sin título'})` : null,
+          p.controls && p.controls.length
+            ? 'Campos visibles en la página:\n' + p.controls.map(c =>
+                `  - ${c.tag}${c.type ? '[' + c.type + ']' : ''} label="${c.label || ''}" name="${c.name || ''}" id="${c.id || ''}" placeholder="${c.placeholder || ''}"`
+              ).join('\n')
+            : 'Campos visibles en la página: ninguno',
+          p.links && p.links.length
+            ? 'Links en la página:\n' + p.links.map(l => `  - "${l.text}" -> ${l.href}`).join('\n')
+            : null
         ].filter(Boolean).join('\n');
-        return sendJson(res, 200, mcpResponse(id, {
-          content: textContent(resumen)
-        }));
+
+        const content = [{ type: 'text', text: resumen }];
+        if (result.screenshot) {
+          content.push({ type: 'image', data: result.screenshot, mimeType: 'image/png' });
+        }
+        return sendJson(res, 200, mcpResponse(id, { content }));
       } catch (err) {
         return sendJson(res, 200, mcpResponse(id, {
           content: textContent('❌ Error en el conector siHosp: ' + (err.message || err)),
