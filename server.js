@@ -179,6 +179,7 @@ const MCP_TOOLS = [
           description: 'Secuencia de textos de links/botones a clickear tras el login para llegar al formulario (ej: ["Registro en HCE","Internaciones"]).',
           items: { type: 'string' }
         },
+        dni: { type: 'string', description: 'DNI o HC del paciente: el conector lo busca en la Historia Clínica y abre su ficha antes de completar. Si no se pasa, se toma del campo etiquetado DNI.' },
         submit: { type: 'boolean', description: 'Si es true, envía el formulario. Por defecto false (solo completa).' },
         usuario: { type: 'string', description: 'Usuario de siHosp (opcional si el servidor tiene SIHOSP_USER configurado).' },
         clave: { type: 'string', description: 'Contraseña de siHosp (opcional si el servidor tiene SIHOSP_PASS configurado).' }
@@ -412,6 +413,7 @@ async function handleMcp(req, res) {
         if (typeof args.submit === 'boolean') overrides.submit = args.submit;
         if (args.formUrl) overrides.form = { url: args.formUrl };
         if (Array.isArray(args.navegar)) overrides.navegar = args.navegar;
+        if (args.dni) overrides.dni = args.dni;
         if (args.usuario) overrides.user = args.usuario;
         if (args.clave) overrides.pass = args.clave;
         const result = await sihosp.fillForm(args.campos || [], overrides);
@@ -436,6 +438,9 @@ async function handleMcp(req, res) {
             : 'Campos visibles en la página: ninguno',
           p.links && p.links.length
             ? 'Links en la página:\n' + p.links.map(l => `  - "${l.text}" -> ${l.href}`).join('\n')
+            : null,
+          p.botones && p.botones.length
+            ? 'Botones en la página:\n' + p.botones.map(b => `  - "${b.text}"${b.aria ? ' aria="' + b.aria + '"' : ''}${b.title ? ' title="' + b.title + '"' : ''}`).join('\n')
             : null
         ].filter(Boolean).join('\n');
 

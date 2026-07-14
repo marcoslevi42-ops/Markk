@@ -159,6 +159,58 @@ async function doLogin(page, cfg, log, creds = {}) {
 }
 
 /**
+ * Busca un paciente por DNI en la pantalla de Historia Clínica de siHosp y
+ * abre su ficha. Flujo: /clinicHistory -> escribir DNI -> BUSCAR -> abrir la
+ * primera fila de resultados.
+ * @returns {Promise<boolean>} true si abrió una ficha.
+ */
+async function buscarPaciente(page, cfg, dni, log) {
+  if (!/\/clinicHistory/i.test(page.url())) {
+    const url = new URL('/clinicHistory', cfg.baseUrl).toString();
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(900);
+  }
+
+  const search = await firstVisible(page, [
+    "input[placeholder*='DNI' i]", "input[placeholder*='Buscar' i]", "input[type='text']"
+  ]);
+  if (!search) { log.push('No se encontró el buscador de pacientes.'); return false; }
+  await search.fill(String(dni));
+
+  const btn = page.locator("button:has-text('BUSCAR'), button:has-text('Buscar')").first();
+  if (await btn.count()) await btn.click().catch(() => {});
+  else await search.press('Enter');
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(1800);
+
+  const rows = page.locator('table tbody tr');
+  const n = await rows.count().catch(() => 0);
+  // Filas "No hay datos" tienen una sola celda; una fila de paciente tiene varias.
+  const firstCells = n ? await rows.first().locator('td').count().catch(() => 0) : 0;
+  if (!n || firstCells <= 1) {
+    log.push(`La búsqueda no devolvió pacientes para DNI ${dni}.`);
+    return false;
+  }
+
+  const row = rows.first();
+  // Botón/enlace de acción: preferir ver/editar/abrir por aria-label o title.
+  const pref = row.locator(
+    "button[aria-label*='ver' i], button[aria-label*='editar' i], button[aria-label*='abrir' i], " +
+    "a[aria-label*='ver' i], button[title*='ver' i], button[title*='editar' i], a[title*='ver' i]"
+  ).first();
+  let clicked = false;
+  if (await pref.count()) { await pref.click().catch(() => {}); clicked = true; }
+  else {
+    const anyAction = row.locator('button, a').last();
+    if (await anyAction.count()) { await anyAction.click().catch(() => {}); clicked = true; }
+  }
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(1800);
+  log.push(`Paciente DNI ${dni}: ${clicked ? 'ficha abierta' : 'sin acción'} -> ${page.url()}`);
+  return clicked;
+}
+
+/**
  * Intenta localizar el control asociado a un campo lógico.
  * Prioridad: override en fieldMap -> <label> con texto -> atributos.
  * Devuelve un Locator de Playwright o null.
@@ -254,6 +306,17 @@ async function fillForm(fields, overrides = {}) {
 
     await doLogin(page, cfg, log, creds);
 
+    // Buscar paciente por DNI si se indicó (o si viene un campo etiquetado DNI):
+    // siHosp exige seleccionar el paciente antes de cargar en su HCE.
+    let dni = cfg.dni;
+    if (!dni) {
+      const campoDni = fields.find(f => ['dni', 'documento', 'hc'].includes(norm(f.label || f.campo)));
+      if (campoDni) dni = campoDni.value != null ? campoDni.value : campoDni.valor;
+    }
+    if (dni) {
+      await buscarPaciente(page, cfg, String(dni).replace(/\D/g, '') || String(dni), log);
+    }
+
     // Si hay una URL de formulario configurada, navegamos; si no, completamos
     // la página a la que llegó el login (modo "hacelo andar" sin config extra).
     const formPath = cfg.form && cfg.form.url;
@@ -332,7 +395,15 @@ async function fillForm(fields, overrides = {}) {
           .map(a => ({ text: (a.textContent || '').trim().slice(0, 60), href: a.getAttribute('href') }))
           .filter(l => l.text)
           .slice(0, 40);
-        return { title: document.title, controls, links };
+        const botones = Array.from(document.querySelectorAll('button, [role=button]'))
+          .map(b => ({
+            text: (b.textContent || '').trim().slice(0, 40),
+            title: b.getAttribute('title') || null,
+            aria: b.getAttribute('aria-label') || null
+          }))
+          .filter(b => b.text || b.title || b.aria)
+          .slice(0, 40);
+        return { title: document.title, controls, links, botones };
       });
       pagina.url = page.url();
     } catch (_) { /* diagnóstico best-effort */ }
