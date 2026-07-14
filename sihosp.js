@@ -267,13 +267,37 @@ async function fillForm(fields, overrides = {}) {
       log.push('Modo revisión: formulario completado pero NO enviado (submit=false).');
     }
 
+    // Inventario de la página: qué campos y links ve el navegador. Permite
+    // diagnosticar a distancia cuándo el conector cae en la página equivocada.
+    let pagina = null;
+    try {
+      pagina = await page.evaluate(() => {
+        const controls = Array.from(
+          document.querySelectorAll('input:not([type=hidden]), textarea, select')
+        ).slice(0, 40).map(el => ({
+          tag: el.tagName.toLowerCase(),
+          type: el.getAttribute('type') || null,
+          name: el.getAttribute('name') || null,
+          id: el.id || null,
+          placeholder: el.getAttribute('placeholder') || null,
+          label: (el.labels && el.labels[0] && el.labels[0].textContent.trim().slice(0, 60)) || null
+        }));
+        const links = Array.from(document.querySelectorAll('a[href]'))
+          .map(a => ({ text: (a.textContent || '').trim().slice(0, 60), href: a.getAttribute('href') }))
+          .filter(l => l.text)
+          .slice(0, 40);
+        return { title: document.title, controls, links };
+      });
+      pagina.url = page.url();
+    } catch (_) { /* diagnóstico best-effort */ }
+
     let screenshot = null;
     if (cfg.screenshot !== false) {
-      const buf = await page.screenshot({ fullPage: true });
+      const buf = await page.screenshot({ fullPage: false });
       screenshot = buf.toString('base64');
     }
 
-    return { ok: true, filled, missing, submitted, screenshot, log };
+    return { ok: true, filled, missing, submitted, screenshot, log, pagina };
   } finally {
     await browser.close();
   }
