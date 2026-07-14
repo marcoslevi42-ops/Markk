@@ -1,0 +1,27 @@
+name: Verificar servidor MCP
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET /mcp (estado y tiempo de respuesta)
+        run: |
+          curl -sS -m 180 -w "\n[HTTP %{http_code} en %{time_total}s]\n" \
+            https://markk-8o3o.onrender.com/mcp
+      - name: POST initialize (como lo hace claude.ai)
+        run: |
+          curl -sS -m 60 -D - -X POST https://markk-8o3o.onrender.com/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}'
+      - name: POST tools/list
+        run: |
+          curl -sS -m 60 -X POST https://markk-8o3o.onrender.com/mcp \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | head -c 500
+      - name: GET con Accept SSE (debe dar 405)
+        run: |
+          curl -sS -o /dev/null -m 60 -w "HTTP %{http_code}\n" \
+            https://markk-8o3o.onrender.com/mcp -H 'Accept: text/event-stream'
