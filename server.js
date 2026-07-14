@@ -301,6 +301,17 @@ async function handleMcp(req, res) {
   }
 
   if (req.method === 'GET') {
+    // Streamable HTTP: un cliente MCP que pide SSE (Accept: text/event-stream)
+    // debe recibir 405 porque este servidor no mantiene streams abiertos.
+    // Para navegadores/health checks devolvemos el estado en JSON.
+    const accept = req.headers['accept'] || '';
+    if (accept.includes('text/event-stream')) {
+      res.writeHead(405, {
+        'Allow': 'POST, OPTIONS',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end();
+    }
     return sendJson(res, 200, {
       name: 'Trauma Forma AI',
       status: 'online',
@@ -309,23 +320,37 @@ async function handleMcp(req, res) {
     });
   }
 
+  if (req.method === 'DELETE') {
+    // Fin de sesión streamable HTTP: servidor sin estado, nada que cerrar.
+    res.writeHead(405, { 'Allow': 'POST, OPTIONS' });
+    return res.end();
+  }
+
   const raw = await collectBody(req);
   const body = JSON.parse(raw.toString() || '{}');
 
   const { id, method, params } = body;
 
   if (method === 'initialize') {
+    // Devolver la versión que pide el cliente si la conocemos: si respondemos
+    // una vieja, claude.ai asume el transporte HTTP+SSE antiguo y falla.
+    const KNOWN_VERSIONS = ['2024-11-05', '2025-03-26', '2025-06-18'];
+    const requested = params && params.protocolVersion;
     return sendJson(res, 200, mcpResponse(id, {
-      protocolVersion: '2024-11-05',
+      protocolVersion: KNOWN_VERSIONS.includes(requested) ? requested : '2025-06-18',
       capabilities: { tools: {} },
       serverInfo: {
         name: 'Trauma Forma AI',
-        version: '1.1.0'
+        version: '1.2.0'
       }
     }));
   }
 
-  if (method === 'notifications/initialized') {
+  if (method === 'ping') {
+    return sendJson(res, 200, mcpResponse(id, {}));
+  }
+
+  if (typeof method === 'string' && method.startsWith('notifications/')) {
     res.writeHead(202);
     return res.end();
   }
