@@ -116,15 +116,41 @@ async function doLogin(page, cfg, log, creds = {}) {
   if (!passLoc) throw new Error('No se encontró el campo de contraseña en el login de siHosp.');
   await passLoc.fill(pass);
 
-  // Enviar: botón submit si existe; si no, Enter en el campo de contraseña.
-  const submitLoc = await firstVisible(page, [
-    l.submitSelector, "button[type='submit']", "input[type='submit']", "button"
+  // Enviar. Prioridad: botón por texto ("Ingresar"/"Entrar"...) para no confundir
+  // con el toggle de "mostrar contraseña". Luego submit genérico, y por último Enter.
+  const submitByText = page.locator(
+    "button:has-text('Ingresar'), button:has-text('Entrar'), button:has-text('Iniciar'), " +
+    "button:has-text('Acceder'), button:has-text('Login'), button:has-text('Ingres')"
+  ).first();
+  let submitLoc = null;
+  if (await submitByText.count() && await submitByText.isVisible().catch(() => false)) {
+    submitLoc = submitByText;
+  } else {
+    submitLoc = await firstVisible(page, [
+      l.submitSelector, "button[type='submit']", "input[type='submit']"
+    ]);
+  }
+
+  const beforeUrl = page.url();
+  if (submitLoc) await submitLoc.click().catch(() => {});
+  else await passLoc.press('Enter');
+
+  // siHosp es una SPA (Angular): esperar a que la URL deje de ser la de login,
+  // en vez de confiar en un evento de carga tradicional.
+  await Promise.race([
+    page.waitForFunction(
+      u => location.href !== u && !/\/login/i.test(location.href),
+      beforeUrl,
+      { timeout: cfg.timeoutMs || 30000 }
+    ).catch(() => {}),
+    page.waitForLoadState('networkidle').catch(() => {})
   ]);
-  await Promise.all([
-    page.waitForLoadState('networkidle').catch(() => {}),
-    submitLoc ? submitLoc.click() : passLoc.press('Enter')
-  ]);
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1200);
+
+  // Si seguimos en el login, el ingreso falló (credenciales o selector).
+  if (/\/login/i.test(page.url())) {
+    log.push('⚠️ Sigue en la página de login tras enviar: revisar credenciales o el botón de ingreso.');
+  }
 
   if (l.successSelector) {
     await page.waitForSelector(l.successSelector, { timeout: cfg.timeoutMs || 30000 });
