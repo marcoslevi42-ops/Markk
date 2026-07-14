@@ -174,6 +174,11 @@ const MCP_TOOLS = [
           }
         },
         formUrl: { type: 'string', description: 'Ruta o URL del formulario destino (opcional, sobreescribe la config).' },
+        navegar: {
+          type: 'array',
+          description: 'Secuencia de textos de links/botones a clickear tras el login para llegar al formulario (ej: ["Registro en HCE","Internaciones"]).',
+          items: { type: 'string' }
+        },
         submit: { type: 'boolean', description: 'Si es true, envía el formulario. Por defecto false (solo completa).' },
         usuario: { type: 'string', description: 'Usuario de siHosp (opcional si el servidor tiene SIHOSP_USER configurado).' },
         clave: { type: 'string', description: 'Contraseña de siHosp (opcional si el servidor tiene SIHOSP_PASS configurado).' }
@@ -406,6 +411,7 @@ async function handleMcp(req, res) {
         const overrides = {};
         if (typeof args.submit === 'boolean') overrides.submit = args.submit;
         if (args.formUrl) overrides.form = { url: args.formUrl };
+        if (Array.isArray(args.navegar)) overrides.navegar = args.navegar;
         if (args.usuario) overrides.user = args.usuario;
         if (args.clave) overrides.pass = args.clave;
         const result = await sihosp.fillForm(args.campos || [], overrides);

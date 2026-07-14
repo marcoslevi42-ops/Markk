@@ -264,6 +264,26 @@ async function fillForm(fields, overrides = {}) {
     } else {
       log.push('Sin form.url configurada: se completa la página actual tras el login.');
     }
+    // Modo navegación: clickear una secuencia de links/botones por su texto,
+    // para llegar al formulario a través del menú (sin URL directa).
+    const pasos = Array.isArray(cfg.navegar) ? cfg.navegar : [];
+    for (const paso of pasos) {
+      const texto = String(paso).replace(/"/g, '\\"');
+      const loc = page.locator(
+        `a:has-text("${texto}"), button:has-text("${texto}"), ` +
+        `[role=button]:has-text("${texto}"), mat-card:has-text("${texto}")`
+      ).first();
+      if (await loc.count()) {
+        await loc.scrollIntoViewIfNeeded().catch(() => {});
+        await loc.click().catch(() => {});
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(1400);
+        log.push(`Click "${paso}" -> ${page.url()}`);
+      } else {
+        log.push(`No se encontró para clickear: "${paso}"`);
+      }
+    }
+
     if (cfg.form && cfg.form.readySelector) {
       await page.waitForSelector(cfg.form.readySelector, { timeout: 5000 }).catch(() => {});
     }
