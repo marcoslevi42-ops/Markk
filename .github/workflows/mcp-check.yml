@@ -6,22 +6,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: GET /mcp (estado y tiempo de respuesta)
+      - name: Versión y features del servidor
         run: |
-          curl -sS -m 180 -w "\n[HTTP %{http_code} en %{time_total}s]\n" \
-            https://markk-8o3o.onrender.com/mcp
-      - name: POST initialize (como lo hace claude.ai)
-        run: |
-          curl -sS -m 60 -D - -X POST https://markk-8o3o.onrender.com/mcp \
+          echo "== initialize (serverInfo.version) =="
+          curl -sS -m 120 -X POST https://markk-8o3o.onrender.com/mcp \
             -H 'Content-Type: application/json' \
-            -H 'Accept: application/json, text/event-stream' \
-            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}'
-      - name: POST tools/list
-        run: |
-          curl -sS -m 60 -X POST https://markk-8o3o.onrender.com/mcp \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"p","version":"1"}}}'
+          echo ""
+          echo "== ¿tools/list tiene las features nuevas? =="
+          BODY=$(curl -sS -m 60 -X POST https://markk-8o3o.onrender.com/mcp \
             -H 'Content-Type: application/json' \
-            -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | head -c 500
-      - name: GET con Accept SSE (debe dar 405)
-        run: |
-          curl -sS -o /dev/null -m 60 -w "HTTP %{http_code}\n" \
-            https://markk-8o3o.onrender.com/mcp -H 'Accept: text/event-stream'
+            -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+          for f in navegar dni buscarPaciente usuario clave; do
+            if echo "$BODY" | grep -q "\"$f\"\|$f"; then echo "  ✔ $f PRESENTE"; else echo "  ✖ $f AUSENTE"; fi
+          done
+          echo ""
+          echo "== esquema de cargar_en_sihosp =="
+          echo "$BODY" | tr ',' '\n' | grep -A2 -i 'cargar_en_sihosp\|navegar\|dni' | head -40
